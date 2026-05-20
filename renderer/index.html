@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LinBar</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="start-menu" id="startMenu" role="menu" aria-label="Start menu" hidden>
+    <button type="button" role="menuitem" data-action="app" data-arg="Terminal">Terminal</button>
+    <button type="button" role="menuitem" data-action="app" data-arg="Safari">Safari</button>
+    <button type="button" role="menuitem" data-action="app" data-arg="Finder">Finder</button>
+    <button type="button" role="menuitem" data-action="special" data-arg="documents">Documents</button>
+    <button type="button" role="menuitem" data-action="settings">System Settings</button>
+  </div>
+
+  <div class="panel-wrap">
+    <div class="panel" role="toolbar" aria-label="LinBar taskbar">
+      <div class="panel-left">
+        <button type="button" class="start-btn" id="startBtn" title="Menu" aria-haspopup="true" aria-expanded="false">m</button>
+        <span class="vsep" role="presentation"></span>
+
+        <button type="button" class="icon-btn js-ql" title="Finder" data-action="app" data-arg="Finder" aria-label="Finder">
+          <span class="ql-icon ql-folder"></span>
+        </button>
+        <button type="button" class="icon-btn js-ql" title="Safari" data-action="app" data-arg="Safari" aria-label="Safari">
+          <span class="ql-icon ql-firefox"></span>
+        </button>
+        <button type="button" class="icon-btn js-ql" title="Terminal" data-action="app" data-arg="Terminal" aria-label="Terminal">
+          <span class="ql-icon ql-term">&gt;_</span>
+        </button>
+        <button type="button" class="icon-btn js-ql" title="Documents" data-action="special" data-arg="documents" aria-label="Documents">
+          <span class="ql-icon ql-files"></span>
+        </button>
+
+        <span class="vsep" role="presentation"></span>
+
+        <div class="task-list" id="taskList" aria-live="polite"></div>
+      </div>
+
+      <div class="panel-spacer"></div>
+
+      <div class="panel-right">
+        <button type="button" class="tray-btn" id="trayAbout" title="About This Mac" aria-label="About This Mac">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M12 16v-5M12 8h.01" stroke-linecap="round" fill="none"/>
+          </svg>
+        </button>
+        <button type="button" class="tray-btn" id="trayNotif" title="Notifications" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7"/>
+            <path d="M13.73 21a2 2 0 01-3.46 0"/>
+          </svg>
+        </button>
+        <button type="button" class="tray-btn" id="trayClip" title="Clipboard" aria-label="Clipboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="9" y="2" width="6" height="4" rx="1"/>
+            <path d="M8 6h8v16H8z"/>
+          </svg>
+        </button>
+        <button type="button" class="tray-btn tray-btn--vol" id="trayVol" title="Mute / unmute" aria-label="Volume mute toggle">
+          <svg id="trayVolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M11 5L6 9H2v6h4l5 4z"/>
+            <path d="M19 9a7 7 0 010 6M15.54 11.54a3 3 0 010 3"/>
+          </svg>
+        </button>
+
+        <div class="clock" id="clock" title="Clock">
+          <span class="clock-time" id="clockTime">00:00</span>
+          <span class="clock-date" id="clockDate">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

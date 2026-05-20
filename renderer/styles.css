@@ -1,0 +1,321 @@
+:root {
+  --panel-h: 48px;
+  --panel-bg0: #d6d6d6;
+  --panel-bg1: #ebebeb;
+  --panel-border-top: rgba(255, 255, 255, 0.75);
+  --panel-border-bottom: rgba(0, 0, 0, 0.12);
+  --panel-shadow: 0 -1px 0 rgba(0, 0, 0, 0.06);
+  --btn-face: linear-gradient(180deg, #f3f3f3 0%, #dedede 45%, #d0d0d0 100%);
+  --btn-border: #9a9a9a;
+  --btn-active: linear-gradient(180deg, #c8c8c8 0%, #d8d8d8 100%);
+  --mint-start: #69b249;
+  --mint-start-hi: #7ec85a;
+  --mint-start-lo: #4e9434;
+  --tray-icon: #4a4a4a;
+  --window-title: #2d2d2d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: transparent !important;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: "DejaVu Sans", "Liberation Sans", "Noto Sans", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+}
+
+.panel-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0;
+  z-index: 50;
+}
+
+.panel {
+  height: var(--panel-h);
+  display: flex;
+  align-items: stretch;
+  padding: 0 6px;
+  background: linear-gradient(180deg, var(--panel-bg1) 0%, var(--panel-bg0) 100%);
+  border-top: 1px solid var(--panel-border-top);
+  box-shadow: var(--panel-shadow);
+  border-bottom: 1px solid var(--panel-border-bottom);
+}
+
+.panel-left,
+.panel-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.panel-left {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding-right: 6px;
+}
+
+.panel-spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.panel-right {
+  flex: 0 0 auto;
+  padding-left: 6px;
+}
+
+.task-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  max-width: min(52vw, 720px);
+  min-width: 0;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.vsep {
+  width: 2px;
+  align-self: stretch;
+  margin: 8px 4px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.14));
+  border-right: 1px solid rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.start-btn {
+  width: 40px;
+  height: 40px;
+  margin: 4px 2px;
+  border-radius: 6px;
+  border: 1px solid var(--mint-start-lo);
+  background: linear-gradient(180deg, var(--mint-start-hi) 0%, var(--mint-start) 45%, var(--mint-start-lo) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 20px;
+  font-style: italic;
+  letter-spacing: -0.06em;
+  user-select: none;
+}
+
+.start-btn:hover {
+  filter: brightness(1.06);
+}
+
+.start-btn:active {
+  transform: translateY(1px);
+  filter: brightness(0.94);
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  margin: 0 1px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.icon-btn:active {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.ql-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.ql-folder {
+  background: linear-gradient(180deg, #9be07a 0%, #5cb85c 55%, #3d8b3d 100%);
+  position: relative;
+}
+.ql-folder::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 8px;
+  bottom: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.ql-firefox {
+  background: conic-gradient(from 200deg, #ff9500, #ff7139, #3368cb, #6fbf49, #ff9500);
+}
+
+.ql-term {
+  background: linear-gradient(180deg, #2a2a2e 0%, #111 100%);
+  color: #9dffa0;
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ql-files {
+  background: linear-gradient(180deg, #f0d060 0%, #d4a017 100%);
+}
+
+.task-btn {
+  height: 34px;
+  min-width: 72px;
+  max-width: 180px;
+  margin: 0 2px;
+  padding: 0 10px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--btn-border);
+  border-radius: 3px;
+  background: var(--btn-face);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  font: inherit;
+  color: var(--window-title);
+  flex-shrink: 0;
+}
+
+.task-btn:hover {
+  filter: brightness(1.03);
+}
+
+.task-btn.active {
+  background: var(--btn-active);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.task-ico {
+  width: 18px;
+  height: 18px;
+  background: #7a7a7a;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.task-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tray-btn {
+  width: 34px;
+  height: 34px;
+  margin: 0 1px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--tray-icon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.tray-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.tray-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tray-btn--vol.muted {
+  opacity: 0.45;
+}
+
+.clock {
+  margin-left: 4px;
+  padding: 2px 10px 2px 12px;
+  height: 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+  color: #222;
+  line-height: 1.15;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.clock-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.clock-date {
+  font-size: 11px;
+  color: #444;
+}
+
+.start-menu {
+  position: fixed;
+  bottom: calc(var(--panel-h) + 6px);
+  left: 8px;
+  width: 220px;
+  background: #f2f2f2;
+  border: 1px solid #888;
+  box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.25);
+  z-index: 60;
+}
+
+.start-menu[hidden] {
+  display: none !important;
+}
+
+.start-menu:not([hidden]) {
+  display: block;
+}
+
+.start-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid #ddd;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.start-menu button:hover {
+  background: #d9e8f7;
+}
