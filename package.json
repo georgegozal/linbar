@@ -1,0 +1,23 @@
+{
+  "name": "linbar",
+  "productName": "LinBar",
+  "version": "1.0.0",
+  "description": "LinBar — a Linux-desktop-style bottom taskbar for macOS (live windows, quick launch, tray).",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.linbar.app",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": ["dmg", "zip"]
+    },
+    "files": ["main.js", "preload.js", "lib/**", "renderer/**"]
+  }
+}
