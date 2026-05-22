@@ -83,6 +83,8 @@ async function runTaskRefresh(reason) {
         "changed=" + String(changed),
         "tasks=" + payload.tasks.length,
         "ms=" + payload.meta.durationMs,
+        "stale=" + String(Boolean(payload.meta.stale)),
+        "parts=" + JSON.stringify(payload.meta.timings || {}),
       );
     }
   } finally {
