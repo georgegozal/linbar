@@ -77,33 +77,36 @@
     );
   }
 
+  function applyTaskPayload(data) {
+    const tasks = data && Array.isArray(data.tasks) ? data.tasks : [];
+    const front = data && data.front ? data.front : null;
+    if (data && data.error) console.warn("LinBar:", data.error);
+    const snap = JSON.stringify({ tasks, front });
+    if (snap === lastSnapshot) return;
+    lastSnapshot = snap;
+
+    taskList.replaceChildren();
+    for (const t of tasks) {
+      const active = isFrontTask(t, front);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "task-btn" + (active ? " active" : "");
+      b.title = t.process + " — " + t.title;
+      const ico = document.createElement("span");
+      ico.className = "task-ico";
+      ico.setAttribute("aria-hidden", "true");
+      const lab = document.createElement("span");
+      lab.className = "task-label";
+      lab.textContent = t.title;
+      b.append(ico, lab);
+      b.addEventListener("click", () => tb.activateTask(t));
+      taskList.appendChild(b);
+    }
+  }
+
   async function refreshTasks() {
     try {
-      const data = await tb.listTasks();
-      const tasks = data.tasks;
-      const front = data.front;
-      if (data.error) console.warn("LinBar:", data.error);
-      const snap = JSON.stringify({ tasks, front });
-      if (snap === lastSnapshot) return;
-      lastSnapshot = snap;
-
-      taskList.replaceChildren();
-      for (const t of tasks || []) {
-        const active = isFrontTask(t, front);
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "task-btn" + (active ? " active" : "");
-        b.title = t.process + " — " + t.title;
-        const ico = document.createElement("span");
-        ico.className = "task-ico";
-        ico.setAttribute("aria-hidden", "true");
-        const lab = document.createElement("span");
-        lab.className = "task-label";
-        lab.textContent = t.title;
-        b.append(ico, lab);
-        b.addEventListener("click", () => tb.activateTask(t));
-        taskList.appendChild(b);
-      }
+      applyTaskPayload(await tb.listTasks());
     } catch (e) {
       console.warn("LinBar refreshTasks:", e);
       lastSnapshot = "";
@@ -111,7 +114,14 @@
   }
 
   refreshTasks();
-  setInterval(refreshTasks, 2000);
+  if (typeof tb.subscribeTasks === "function") {
+    tb.subscribeTasks(applyTaskPayload);
+  }
+  if (typeof tb.pokeTasks === "function") {
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) tb.pokeTasks();
+    });
+  }
 
   document.getElementById("trayAbout").addEventListener("click", () => tb.openAboutMac());
   document.getElementById("trayNotif").addEventListener("click", () => tb.openNotificationSettings());
