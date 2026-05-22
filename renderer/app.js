@@ -67,6 +67,37 @@
   });
 
   let lastSnapshot = "";
+  const taskButtonByKey = new Map();
+  let applyTimer = null;
+  let pendingPayload = null;
+
+  function taskKey(t) {
+    if (t && typeof t.key === "string" && t.key) return t.key;
+    return String(t.process) + "::" + String(t.kind) + "::" + String(t.ref);
+  }
+
+  function createTaskButton(t) {
+    const b = document.createElement("button");
+    b.type = "button";
+    const ico = document.createElement("span");
+    ico.className = "task-ico";
+    ico.setAttribute("aria-hidden", "true");
+    const lab = document.createElement("span");
+    lab.className = "task-label";
+    b.append(ico, lab);
+    return b;
+  }
+
+  function patchTaskButton(button, t, active) {
+    button.className = "task-btn" + (active ? " active" : "");
+    button.title = t.process + " — " + t.title;
+    const label = button.querySelector(".task-label");
+    if (label && label.textContent !== t.title) label.textContent = t.title;
+    if (button._taskKey !== taskKey(t)) {
+      button._taskKey = taskKey(t);
+      button.onclick = () => tb.activateTask(t);
+    }
+  }
 
   function isFrontTask(t, front) {
     if (!t || !front) return false;
@@ -85,28 +116,40 @@
     if (snap === lastSnapshot) return;
     lastSnapshot = snap;
 
-    taskList.replaceChildren();
+    const nextKeys = new Set();
+    const frag = document.createDocumentFragment();
     for (const t of tasks) {
+      const key = taskKey(t);
+      nextKeys.add(key);
       const active = isFrontTask(t, front);
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "task-btn" + (active ? " active" : "");
-      b.title = t.process + " — " + t.title;
-      const ico = document.createElement("span");
-      ico.className = "task-ico";
-      ico.setAttribute("aria-hidden", "true");
-      const lab = document.createElement("span");
-      lab.className = "task-label";
-      lab.textContent = t.title;
-      b.append(ico, lab);
-      b.addEventListener("click", () => tb.activateTask(t));
-      taskList.appendChild(b);
+      const b = taskButtonByKey.get(key) || createTaskButton(t);
+      patchTaskButton(b, t, active);
+      taskButtonByKey.set(key, b);
+      frag.appendChild(b);
     }
+
+    for (const [key, button] of taskButtonByKey.entries()) {
+      if (nextKeys.has(key)) continue;
+      taskButtonByKey.delete(key);
+      if (button.parentNode === taskList) taskList.removeChild(button);
+    }
+    taskList.replaceChildren(frag);
+  }
+
+  function queueTaskPayload(data) {
+    pendingPayload = data;
+    if (applyTimer) return;
+    applyTimer = setTimeout(() => {
+      applyTimer = null;
+      const next = pendingPayload;
+      pendingPayload = null;
+      if (next) applyTaskPayload(next);
+    }, 80);
   }
 
   async function refreshTasks() {
     try {
-      applyTaskPayload(await tb.listTasks());
+      queueTaskPayload(await tb.listTasks());
     } catch (e) {
       console.warn("LinBar refreshTasks:", e);
       lastSnapshot = "";
@@ -115,7 +158,7 @@
 
   refreshTasks();
   if (typeof tb.subscribeTasks === "function") {
-    tb.subscribeTasks(applyTaskPayload);
+    tb.subscribeTasks(queueTaskPayload);
   }
   if (typeof tb.pokeTasks === "function") {
     document.addEventListener("visibilitychange", () => {
