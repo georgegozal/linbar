@@ -1,8 +1,7 @@
 const { app, BrowserWindow, ipcMain, screen, Menu, shell } = require("electron");
 const path = require("node:path");
 const {
-  listWindowTasks,
-  getFrontmostWindowTask,
+  listTaskSnapshot,
   activateWindowTask,
   openApp,
   toggleOutputMuted,
@@ -47,31 +46,19 @@ function markTaskInteraction() {
 
 async function buildTaskPayload(reason) {
   const startedAt = nowMs();
-  const exclude = ownProcessNamesToExclude();
-  try {
-    const [tasks, front] = await Promise.all([listWindowTasks(exclude), getFrontmostWindowTask()]);
-    return {
-      tasks,
-      front,
-      error: null,
-      meta: {
-        reason,
-        at: Date.now(),
-        durationMs: Number((nowMs() - startedAt).toFixed(1)),
-      },
-    };
-  } catch (err) {
-    return {
-      tasks: [],
-      front: null,
-      error: String(err && err.message ? err.message : err),
-      meta: {
-        reason,
-        at: Date.now(),
-        durationMs: Number((nowMs() - startedAt).toFixed(1)),
-      },
-    };
-  }
+  const snapshot = await listTaskSnapshot(ownProcessNamesToExclude());
+  return {
+    tasks: snapshot.tasks,
+    front: snapshot.front,
+    error: snapshot.error,
+    meta: {
+      reason,
+      at: Date.now(),
+      durationMs: Number((nowMs() - startedAt).toFixed(1)),
+      stale: snapshot.meta.stale,
+      timings: snapshot.meta.timings,
+    },
+  };
 }
 
 function emitTaskPayload(payload) {
