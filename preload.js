@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("taskbar", {
   listTasks: () => ipcRenderer.invoke("tasks:list"),
-  activateTask: (appName) => ipcRenderer.invoke("tasks:activate", appName),
+  activateTask: (task) => ipcRenderer.invoke("tasks:activate", task),
   openApp: (appName) => ipcRenderer.invoke("app:open", appName),
   openPath: (target) => ipcRenderer.invoke("path:open", target),
   openSpecialPath: (key) => ipcRenderer.invoke("path:special", key),

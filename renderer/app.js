@@ -68,30 +68,44 @@
 
   let lastSnapshot = "";
 
+  function isFrontTask(t, front) {
+    if (!t || !front) return false;
+    return (
+      t.process === front.process &&
+      t.kind === front.kind &&
+      Number(t.ref) === Number(front.ref)
+    );
+  }
+
   async function refreshTasks() {
     try {
-      const { apps, front } = await tb.listTasks();
-      const snap = JSON.stringify({ apps, front });
+      const data = await tb.listTasks();
+      const tasks = data.tasks;
+      const front = data.front;
+      if (data.error) console.warn("LinBar:", data.error);
+      const snap = JSON.stringify({ tasks, front });
       if (snap === lastSnapshot) return;
       lastSnapshot = snap;
 
       taskList.replaceChildren();
-      for (const name of apps) {
+      for (const t of tasks || []) {
+        const active = isFrontTask(t, front);
         const b = document.createElement("button");
         b.type = "button";
-        b.className = "task-btn" + (name === front ? " active" : "");
-        b.title = name;
+        b.className = "task-btn" + (active ? " active" : "");
+        b.title = t.process + " — " + t.title;
         const ico = document.createElement("span");
         ico.className = "task-ico";
         ico.setAttribute("aria-hidden", "true");
         const lab = document.createElement("span");
         lab.className = "task-label";
-        lab.textContent = name;
+        lab.textContent = t.title;
         b.append(ico, lab);
-        b.addEventListener("click", () => tb.activateTask(name));
+        b.addEventListener("click", () => tb.activateTask(t));
         taskList.appendChild(b);
       }
-    } catch {
+    } catch (e) {
+      console.warn("LinBar refreshTasks:", e);
       lastSnapshot = "";
     }
   }

@@ -62,14 +62,14 @@ body {
 }
 
 .panel-left {
-  flex: 0 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   padding-right: 6px;
 }
 
 .panel-spacer {
-  flex: 1 1 auto;
-  min-width: 8px;
+  flex: 0 0 12px;
+  min-width: 12px;
 }
 
 .panel-right {
@@ -80,10 +80,11 @@ body {
 .task-list {
   display: flex;
   align-items: center;
-  gap: 4px;
-  overflow-x: auto;
-  max-width: min(52vw, 720px);
+  gap: 6px;
+  flex: 1 1 auto;
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 2px;
   scrollbar-width: thin;
 }
@@ -190,8 +191,9 @@ body {
 
 .task-btn {
   height: 34px;
-  min-width: 72px;
-  max-width: 180px;
+  min-width: 168px;
+  max-width: 420px;
+  flex: 0 0 auto;
   margin: 0 2px;
   padding: 0 10px 0 8px;
   display: flex;

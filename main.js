@@ -1,9 +1,9 @@
 const { app, BrowserWindow, ipcMain, screen, Menu, shell } = require("electron");
 const path = require("node:path");
 const {
-  listAppsWithWindows,
-  getFrontmostAppName,
-  activateApp,
+  listWindowTasks,
+  getFrontmostWindowTask,
+  activateWindowTask,
   openApp,
   toggleOutputMuted,
   getVolumeState,
@@ -11,11 +11,17 @@ const {
 } = require("./lib/applescript");
 
 const PANEL_HEIGHT = 48;
+const DEBUG_TASKS = process.env.LINBAR_DEBUG_TASKS === "1";
 
 let mainWindow = null;
 
+function nowMs() {
+  return Number(process.hrtime.bigint()) / 1e6;
+}
+
 function ownProcessNamesToExclude() {
-  const names = [app.getName(), "Electron", "LinBar", "linbar"];
+  /** Dev: System Events name is usually "Electron". Packaged: productName e.g. "LinBar". */
+  const names = [app.getName(), "Electron", "LinBar", "linbar", "XFCE Taskbar", "xfce-taskbar-app"];
   return [...new Set(names.filter(Boolean))];
 }
 
@@ -92,16 +98,54 @@ function setMacMenu() {
 
 ipcMain.handle("tasks:list", async () => {
   const exclude = ownProcessNamesToExclude();
-  const [apps, front] = await Promise.all([listAppsWithWindows(exclude), getFrontmostAppName()]);
-  return { apps, front };
+  const startedAt = nowMs();
+  try {
+    const [tasks, front] = await Promise.all([listWindowTasks(exclude), getFrontmostWindowTask()]);
+    if (DEBUG_TASKS && mainWindow && !mainWindow.isDestroyed()) {
+      console.log(
+        "[LinBar] tasks:list",
+        "tasks=" + tasks.length,
+        "front=" + (front && front.process ? front.process : "none"),
+        "ms=" + (nowMs() - startedAt).toFixed(1),
+      );
+    }
+    return { tasks, front };
+  } catch (err) {
+    console.error("[LinBar] tasks:list failed:", err.message || err);
+    return { tasks: [], front: null, error: String(err && err.message ? err.message : err) };
+  }
 });
 
-ipcMain.handle("tasks:activate", async (_e, appName) => {
-  if (!appName || typeof appName !== "string") return { ok: false };
+ipcMain.handle("tasks:activate", async (_e, task) => {
+  if (!task || typeof task !== "object") return { ok: false };
+  const process = task.process;
+  const kind = task.kind;
+  const ref = Number(task.ref);
+  if (typeof process !== "string" || !process) return { ok: false };
+  if (kind !== "system" && kind !== "terminal" && kind !== "browser") return { ok: false };
+  if (!Number.isFinite(ref) || ref < 1) return { ok: false };
+  const startedAt = nowMs();
   try {
-    await activateApp(appName);
+    await activateWindowTask({
+      process,
+      kind,
+      ref,
+      title: typeof task.title === "string" ? task.title : "",
+    });
+    if (DEBUG_TASKS) {
+      console.log("[LinBar] tasks:activate", process, kind, ref, "ms=" + (nowMs() - startedAt).toFixed(1));
+    }
     return { ok: true };
   } catch (err) {
+    if (DEBUG_TASKS) {
+      console.warn(
+        "[LinBar] tasks:activate failed",
+        process,
+        kind,
+        ref,
+        "ms=" + (nowMs() - startedAt).toFixed(1),
+      );
+    }
     return { ok: false, error: String(err && err.message ? err.message : err) };
   }
 });

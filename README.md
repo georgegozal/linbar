@@ -7,7 +7,8 @@ The name is short for **Lin**ux-style **bar** — familiar if you miss XFCE/Mint
 ## Requirements
 
 - macOS (tested with recent versions)
-- **Automation / Accessibility**: macOS may prompt the first time LinBar asks **System Events** to list windows and activate apps. Allow LinBar in **System Settings → Privacy & Security → Automation** (and **Accessibility** if macOS asks).
+- **Automation / Accessibility**: macOS may prompt the first time LinBar uses **System Events**. Allow LinBar in **System Settings → Privacy & Security → Automation** (LinBar → System Events). If the task list stays empty, also enable **Accessibility** for LinBar (some macOS versions need it to read other apps’ windows).
+- Debug: run `LINBAR_DEBUG_TASKS=1 npm start` to log how many tasks LinBar sees in the main window’s terminal.
 
 ## Run from source
 
@@ -20,7 +21,7 @@ npm start
 ## What works
 
 - Bottom **panel** above the physical screen edge (may sit over the stock Dock unless you hide it or move it).
-- **Refresh** of running apps ~ every 2s; click a task to **activate** that app.
+- **Refresh** of open windows ~ every 2s (one task button per **window**, e.g. two Terminal windows → two buttons). Click a task to **focus** that window.
 - **Quick launch** (Finder, Safari, Terminal, Documents).
 - **Start menu** with common actions.
 - Tray: About This Mac, Notifications prefs, **clipboard text preview**, **volume mute** toggle.
