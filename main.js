@@ -12,11 +12,96 @@ const {
 
 const PANEL_HEIGHT = 48;
 const DEBUG_TASKS = process.env.LINBAR_DEBUG_TASKS === "1";
+const TASK_REFRESH_ACTIVE_MS = 900;
+const TASK_REFRESH_IDLE_MS = 2200;
+const TASK_ACTIVE_WINDOW_MS = 8000;
 
 let mainWindow = null;
+let taskRefreshTimer = null;
+let taskRefreshInFlight = false;
+let lastInteractionAt = 0;
+let lastTaskPayload = null;
+let lastTaskSnapshot = "";
 
 function nowMs() {
   return Number(process.hrtime.bigint()) / 1e6;
+}
+
+function getTaskRefreshDelay() {
+  return Date.now() - lastInteractionAt < TASK_ACTIVE_WINDOW_MS
+    ? TASK_REFRESH_ACTIVE_MS
+    : TASK_REFRESH_IDLE_MS;
+}
+
+function scheduleTaskRefresh(delayMs = getTaskRefreshDelay()) {
+  if (taskRefreshTimer) clearTimeout(taskRefreshTimer);
+  taskRefreshTimer = setTimeout(() => {
+    taskRefreshTimer = null;
+    void runTaskRefresh("scheduler");
+  }, Math.max(0, Math.floor(delayMs)));
+}
+
+function markTaskInteraction() {
+  lastInteractionAt = Date.now();
+}
+
+async function buildTaskPayload(reason) {
+  const startedAt = nowMs();
+  const exclude = ownProcessNamesToExclude();
+  try {
+    const [tasks, front] = await Promise.all([listWindowTasks(exclude), getFrontmostWindowTask()]);
+    return {
+      tasks,
+      front,
+      error: null,
+      meta: {
+        reason,
+        at: Date.now(),
+        durationMs: Number((nowMs() - startedAt).toFixed(1)),
+      },
+    };
+  } catch (err) {
+    return {
+      tasks: [],
+      front: null,
+      error: String(err && err.message ? err.message : err),
+      meta: {
+        reason,
+        at: Date.now(),
+        durationMs: Number((nowMs() - startedAt).toFixed(1)),
+      },
+    };
+  }
+}
+
+function emitTaskPayload(payload) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send("taskbar:tasksUpdated", payload);
+}
+
+async function runTaskRefresh(reason) {
+  if (taskRefreshInFlight) return;
+  taskRefreshInFlight = true;
+  try {
+    const payload = await buildTaskPayload(reason);
+    const snap = JSON.stringify({ tasks: payload.tasks, front: payload.front, error: payload.error });
+    const changed = snap !== lastTaskSnapshot;
+    lastTaskSnapshot = snap;
+    lastTaskPayload = payload;
+    if (changed || DEBUG_TASKS) emitTaskPayload(payload);
+    if (DEBUG_TASKS) {
+      console.log(
+        "[LinBar] refresh",
+        "reason=" + reason,
+        "changed=" + String(changed),
+        "tasks=" + payload.tasks.length,
+        "ms=" + payload.meta.durationMs,
+      );
+    }
+  } finally {
+    taskRefreshInFlight = false;
+    scheduleTaskRefresh();
+  }
 }
 
 function ownProcessNamesToExclude() {
@@ -97,23 +182,25 @@ function setMacMenu() {
 }
 
 ipcMain.handle("tasks:list", async () => {
-  const exclude = ownProcessNamesToExclude();
-  const startedAt = nowMs();
-  try {
-    const [tasks, front] = await Promise.all([listWindowTasks(exclude), getFrontmostWindowTask()]);
-    if (DEBUG_TASKS && mainWindow && !mainWindow.isDestroyed()) {
-      console.log(
-        "[LinBar] tasks:list",
-        "tasks=" + tasks.length,
-        "front=" + (front && front.process ? front.process : "none"),
-        "ms=" + (nowMs() - startedAt).toFixed(1),
-      );
-    }
-    return { tasks, front };
-  } catch (err) {
-    console.error("[LinBar] tasks:list failed:", err.message || err);
-    return { tasks: [], front: null, error: String(err && err.message ? err.message : err) };
+  markTaskInteraction();
+  if (!lastTaskPayload) {
+    lastTaskPayload = await buildTaskPayload("tasks:list");
+    lastTaskSnapshot = JSON.stringify({
+      tasks: lastTaskPayload.tasks,
+      front: lastTaskPayload.front,
+      error: lastTaskPayload.error,
+    });
   }
+  return {
+    tasks: lastTaskPayload.tasks,
+    front: lastTaskPayload.front,
+    error: lastTaskPayload.error,
+  };
+});
+
+ipcMain.on("tasks:poke", () => {
+  markTaskInteraction();
+  scheduleTaskRefresh(0);
 });
 
 ipcMain.handle("tasks:activate", async (_e, task) => {
@@ -132,6 +219,8 @@ ipcMain.handle("tasks:activate", async (_e, task) => {
       ref,
       title: typeof task.title === "string" ? task.title : "",
     });
+    markTaskInteraction();
+    scheduleTaskRefresh(0);
     if (DEBUG_TASKS) {
       console.log("[LinBar] tasks:activate", process, kind, ref, "ms=" + (nowMs() - startedAt).toFixed(1));
     }
@@ -228,9 +317,13 @@ ipcMain.handle("sys:settings", async () => {
 app.whenReady().then(() => {
   setMacMenu();
   createWindow();
+  markTaskInteraction();
+  scheduleTaskRefresh(0);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    markTaskInteraction();
+    scheduleTaskRefresh(0);
   });
 });
 
