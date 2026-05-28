@@ -71,9 +71,41 @@
   let applyTimer = null;
   let pendingPayload = null;
 
+  /** process name -> data URL string | null (null = fetch in progress or failed) */
+  const iconCache = new Map();
+
   function taskKey(t) {
     if (t && typeof t.key === "string" && t.key) return t.key;
     return String(t.process) + "::" + String(t.kind) + "::" + String(t.ref);
+  }
+
+  function applyIconToButton(button, dataUrl) {
+    const ico = button.querySelector(".task-ico");
+    if (!ico) return;
+    if (dataUrl) {
+      ico.style.backgroundImage = `url("${dataUrl}")`;
+      ico.style.backgroundColor = "transparent";
+    }
+  }
+
+  function ensureIcon(processName) {
+    if (iconCache.has(processName)) {
+      const url = iconCache.get(processName);
+      if (!url) return; // failed or in flight
+      // Apply to any existing buttons for this process
+      for (const [key, btn] of taskButtonByKey.entries()) {
+        if (key.split("::")[0] === processName) applyIconToButton(btn, url);
+      }
+      return;
+    }
+    iconCache.set(processName, null); // mark in-flight
+    tb.getAppIcon(processName).then((url) => {
+      iconCache.set(processName, url || null);
+      if (!url) return;
+      for (const [key, btn] of taskButtonByKey.entries()) {
+        if (key.split("::")[0] === processName) applyIconToButton(btn, url);
+      }
+    }).catch(() => {});
   }
 
   function createTaskButton(t) {
@@ -85,6 +117,10 @@
     const lab = document.createElement("span");
     lab.className = "task-label";
     b.append(ico, lab);
+    b.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      tb.contextMenuTask(t);
+    });
     return b;
   }
 
@@ -96,6 +132,14 @@
     if (button._taskKey !== taskKey(t)) {
       button._taskKey = taskKey(t);
       button.onclick = () => tb.activateTask(t);
+      button.oncontextmenu = (e) => { e.preventDefault(); tb.contextMenuTask(t); };
+    }
+    // Apply cached icon immediately or fetch
+    const cachedUrl = iconCache.get(t.process);
+    if (cachedUrl) {
+      applyIconToButton(button, cachedUrl);
+    } else {
+      ensureIcon(t.process);
     }
   }
 

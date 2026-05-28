@@ -4,6 +4,9 @@ const {
   listTaskSnapshot,
   activateWindowTask,
   openApp,
+  getAppBundlePath,
+  minimizeWindowTask,
+  closeWindowTask,
   toggleOutputMuted,
   getVolumeState,
   getClipboardText,
@@ -11,8 +14,8 @@ const {
 
 const PANEL_HEIGHT = 48;
 const DEBUG_TASKS = process.env.LINBAR_DEBUG_TASKS === "1";
-const TASK_REFRESH_ACTIVE_MS = 900;
-const TASK_REFRESH_IDLE_MS = 2200;
+const TASK_REFRESH_ACTIVE_MS = 1600;
+const TASK_REFRESH_IDLE_MS = 4000;
 const TASK_ACTIVE_WINDOW_MS = 8000;
 
 let mainWindow = null;
@@ -301,6 +304,107 @@ ipcMain.handle("sys:notificationSettings", async () => {
 ipcMain.handle("sys:settings", async () => {
   await shell.openExternal("x-apple.systempreferences:");
   return { ok: true };
+});
+
+const iconCache = new Map();
+
+async function findAppIcon(appName) {
+  if (iconCache.has(appName)) return iconCache.get(appName);
+  iconCache.set(appName, null);
+  let dataUrl = null;
+  try {
+    const bundlePath = await getAppBundlePath(appName);
+    if (bundlePath && bundlePath.trim()) {
+      const img = await app.getFileIcon(bundlePath.trim(), { size: "normal" });
+      dataUrl = img.toDataURL();
+    }
+  } catch {}
+  if (!dataUrl) {
+    const candidates = [
+      `/Applications/${appName}.app`,
+      `/System/Applications/${appName}.app`,
+      `/System/Applications/Utilities/${appName}.app`,
+    ];
+    for (const p of candidates) {
+      try {
+        const img = await app.getFileIcon(p, { size: "normal" });
+        dataUrl = img.toDataURL();
+        break;
+      } catch {}
+    }
+  }
+  iconCache.set(appName, dataUrl);
+  return dataUrl;
+}
+
+ipcMain.handle("icon:get", async (_e, appName) => {
+  if (!appName || typeof appName !== "string") return null;
+  return findAppIcon(appName);
+});
+
+function validateTask(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const kind = raw.kind;
+  const process = String(raw.process || "");
+  const ref = Number(raw.ref);
+  if (!process || !["system", "terminal", "browser"].includes(kind)) return null;
+  if (!Number.isFinite(ref) || ref < 1) return null;
+  return { process, kind, ref, title: String(raw.title || "") };
+}
+
+ipcMain.handle("window:minimize", async (_e, rawTask) => {
+  const task = validateTask(rawTask);
+  if (!task) return { ok: false };
+  try {
+    await minimizeWindowTask(task);
+    scheduleTaskRefresh(0);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+
+ipcMain.handle("window:close", async (_e, rawTask) => {
+  const task = validateTask(rawTask);
+  if (!task) return { ok: false };
+  try {
+    await closeWindowTask(task);
+    scheduleTaskRefresh(0);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+
+ipcMain.on("window:contextmenu", (_e, rawTask) => {
+  const task = validateTask(rawTask);
+  if (!task) return;
+  const win = BrowserWindow.fromWebContents(_e.sender);
+  const menu = Menu.buildFromTemplate([
+    {
+      label: "Bring to Front",
+      click: async () => {
+        try { await activateWindowTask(task); } catch {}
+        scheduleTaskRefresh(0);
+      },
+    },
+    { type: "separator" },
+    {
+      label: "Minimize",
+      click: async () => {
+        try { await minimizeWindowTask(task); } catch {}
+        scheduleTaskRefresh(0);
+      },
+    },
+    {
+      label: "Close Window",
+      click: async () => {
+        try { await closeWindowTask(task); } catch {}
+        scheduleTaskRefresh(0);
+      },
+    },
+  ]);
+  menu.popup({ window: win });
 });
 
 app.whenReady().then(() => {

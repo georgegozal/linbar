@@ -221,7 +221,7 @@ body {
 .task-ico {
   width: 18px;
   height: 18px;
-  background: #7a7a7a;
+  background: #c0c0c0 center/cover no-repeat;
   border-radius: 2px;
   flex-shrink: 0;
 }

@@ -9,7 +9,7 @@ The name is short for **Lin**ux-style **bar** — familiar if you miss XFCE/Mint
 - macOS (tested with recent versions)
 - **Automation / Accessibility**: macOS may prompt the first time LinBar uses **System Events**. Allow LinBar in **System Settings → Privacy & Security → Automation** (LinBar → System Events). If the task list stays empty, also enable **Accessibility** for LinBar (some macOS versions need it to read other apps’ windows).
 - Debug: run `LINBAR_DEBUG_TASKS=1 npm start` to log refresh timings, snapshot health, and activation latency in the main window’s terminal.
-- Window scope: by default LinBar lists windows from the **current Space**. Set `LINBAR_CURRENT_SPACE_ONLY=0` to include windows from all Spaces when app scripting allows it.
+- Window scope: by default LinBar lists windows from all Spaces that app scripting exposes. Set `LINBAR_CURRENT_SPACE_ONLY=1` to apply stricter current-Space filtering for System Events windows.
 
 ## Run from source
 
