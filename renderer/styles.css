@@ -80,13 +80,10 @@ body {
 .task-list {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex: 1 1 auto;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 2px;
-  scrollbar-width: thin;
+  overflow: hidden;
 }
 
 .vsep {
@@ -191,11 +188,11 @@ body {
 
 .task-btn {
   height: 34px;
-  min-width: 168px;
-  max-width: 420px;
-  flex: 0 0 auto;
-  margin: 0 2px;
-  padding: 0 10px 0 8px;
+  flex: 1 1 0;
+  min-width: 56px;
+  max-width: 200px;
+  margin: 0;
+  padding: 0 8px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -206,7 +203,6 @@ body {
   cursor: pointer;
   font: inherit;
   color: var(--window-title);
-  flex-shrink: 0;
 }
 
 .task-btn:hover {
