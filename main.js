@@ -537,6 +537,24 @@ function mdfindAppPath(appName) {
   });
 }
 
+/**
+ * Resolve a real icon for an app bundle. Prefers the native helper
+ * (NSWorkspace gives the true bundle icon); Electron's getFileIcon only
+ * returns the generic application icon for .app paths, so it is last resort.
+ */
+async function iconForBundlePath(bundlePath) {
+  if (nativeTracker) {
+    const fromHelper = await nativeTracker.getIcon(bundlePath);
+    if (fromHelper) return fromHelper;
+  }
+  try {
+    const img = await app.getFileIcon(bundlePath, { size: "normal" });
+    return img.toDataURL();
+  } catch {
+    return null;
+  }
+}
+
 async function findAppIcon(appName) {
   const cachedUrl = iconCache.get(appName);
   if (cachedUrl) return cachedUrl;
@@ -548,17 +566,10 @@ async function findAppIcon(appName) {
       bundlePath = (await getAppBundlePath(appName)).trim();
     } catch {}
   }
-  // getFileIcon silently returns a generic document icon for bad paths, so
-  // never call it without confirming the bundle actually exists.
   if (!bundlePath || !fs.existsSync(bundlePath)) return null;
-  try {
-    const img = await app.getFileIcon(bundlePath, { size: "normal" });
-    const dataUrl = img.toDataURL();
-    iconCache.set(appName, dataUrl);
-    return dataUrl;
-  } catch {
-    return null;
-  }
+  const dataUrl = await iconForBundlePath(bundlePath);
+  if (dataUrl) iconCache.set(appName, dataUrl);
+  return dataUrl;
 }
 
 ipcMain.handle("icon:get", async (_e, appName) => {
@@ -617,21 +628,52 @@ function isValidAppPath(p) {
   );
 }
 
-ipcMain.handle("apps:list", () => listInstalledApps());
+const KNOWN_INTERNET_APPS = new Set([
+  "Safari", "Brave Browser", "Google Chrome", "Chromium", "Microsoft Edge", "Opera",
+  "Vivaldi", "Arc", "Firefox", "Tor Browser", "Mail", "Thunderbird", "Microsoft Teams",
+  "Slack", "Discord", "Telegram", "WhatsApp", "Signal", "zoom.us", "Messages", "FaceTime",
+]);
+
+/** Map LSApplicationCategoryType + location heuristics to XFCE-style groups. */
+function categoryGroupFor(rawCategory, appPath) {
+  const appName = path.basename(appPath, ".app");
+  if (KNOWN_INTERNET_APPS.has(appName)) return "Internet";
+  const c = String(rawCategory || "").replace("public.app-category.", "");
+  if (c.includes("games") || c === "entertainment") return "Games";
+  if (c.includes("developer")) return "Development";
+  if (["graphics-design", "photography", "design"].includes(c)) return "Graphics";
+  if (["video", "music", "audio"].includes(c)) return "Multimedia";
+  if (["social-networking", "news", "communication"].includes(c)) return "Internet";
+  if (
+    ["productivity", "business", "finance", "education", "reference", "word-processor", "spreadsheet", "presentation"].includes(c)
+  ) return "Office";
+  if (c === "utilities") return "Accessories";
+  if (appPath.startsWith("/System/Applications/Utilities/")) return "Accessories";
+  if (appPath.startsWith("/System/")) return "System";
+  return c ? "Other" : "Other";
+}
+
+let categorizedApps = null;
+
+ipcMain.handle("apps:list", async () => {
+  const apps = listInstalledApps();
+  if (categorizedApps && categorizedApps.length === apps.length) return categorizedApps;
+  let raw = {};
+  if (nativeTracker) {
+    raw = await nativeTracker.getCategories(apps.map((a) => a.path));
+  }
+  categorizedApps = apps.map((a) => ({ ...a, category: categoryGroupFor(raw[a.path], a.path) }));
+  return categorizedApps;
+});
 
 const appPathIconCache = new Map();
 
 ipcMain.handle("apps:icon", async (_e, appPath) => {
   if (!isValidAppPath(appPath)) return null;
   if (appPathIconCache.has(appPath)) return appPathIconCache.get(appPath);
-  try {
-    const img = await app.getFileIcon(appPath, { size: "normal" });
-    const dataUrl = img.toDataURL();
-    appPathIconCache.set(appPath, dataUrl);
-    return dataUrl;
-  } catch {
-    return null;
-  }
+  const dataUrl = await iconForBundlePath(appPath);
+  if (dataUrl) appPathIconCache.set(appPath, dataUrl);
+  return dataUrl;
 });
 
 ipcMain.handle("apps:openPath", async (_e, appPath) => {

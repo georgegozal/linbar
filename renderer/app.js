@@ -49,7 +49,10 @@
   // --- App drawer (Whisker-menu style) ---
   const drawerSearch = document.getElementById("drawerSearch");
   const drawerGrid = document.getElementById("drawerGrid");
+  const drawerCats = document.getElementById("drawerCats");
+  const CAT_ORDER = ["All", "Accessories", "Development", "Games", "Graphics", "Internet", "Multimedia", "Office", "System", "Other"];
   let drawerLoaded = false;
+  let selectedCat = "All";
 
   const drawerIconObserver = new IntersectionObserver((entries) => {
     for (const entry of entries) {
@@ -64,12 +67,32 @@
         ico.style.backgroundImage = `url("${url}")`;
       }).catch(() => {});
     }
-  }, { root: null, rootMargin: "120px" });
+  }, { root: null, rootMargin: "200px" });
+
+  function renderCats(apps) {
+    const present = new Set(apps.map((a) => a.category));
+    drawerCats.replaceChildren();
+    for (const cat of CAT_ORDER) {
+      if (cat !== "All" && !present.has(cat)) continue;
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "drawer-cat" + (cat === selectedCat ? " selected" : "");
+      b.textContent = cat === "All" ? "All Applications" : cat;
+      b.dataset.cat = cat;
+      b.addEventListener("click", () => {
+        selectedCat = cat;
+        for (const c of drawerCats.children) c.classList.toggle("selected", c.dataset.cat === cat);
+        filterDrawer(drawerSearch.value);
+      });
+      drawerCats.appendChild(b);
+    }
+  }
 
   async function loadDrawer() {
     if (drawerLoaded) return;
     drawerLoaded = true;
     const apps = await tb.listInstalledApps();
+    renderCats(apps);
     drawerGrid.replaceChildren();
     for (const a of apps) {
       const item = document.createElement("button");
@@ -77,6 +100,7 @@
       item.className = "drawer-item";
       item.dataset.path = a.path;
       item.dataset.name = a.name.toLowerCase();
+      item.dataset.cat = a.category || "Other";
       item.title = a.name;
       const ico = document.createElement("span");
       ico.className = "drawer-ico";
@@ -97,7 +121,10 @@
   function filterDrawer(query) {
     const q = query.trim().toLowerCase();
     for (const item of drawerGrid.children) {
-      item.hidden = q !== "" && !item.dataset.name.includes(q);
+      const matchesText = q === "" || item.dataset.name.includes(q);
+      // Searching looks across every category, like Whisker.
+      const matchesCat = q !== "" || selectedCat === "All" || item.dataset.cat === selectedCat;
+      item.hidden = !(matchesText && matchesCat);
     }
   }
 

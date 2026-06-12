@@ -70,6 +70,21 @@ final class TrackedApp {
     }
 }
 
+func pngDataURL(for image: NSImage, size: Int) -> String? {
+    guard let rep = NSBitmapImageRep(
+        bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size,
+        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+        colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+    ) else { return nil }
+    rep.size = NSSize(width: size, height: size)
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    image.draw(in: NSRect(x: 0, y: 0, width: size, height: size), from: .zero, operation: .copy, fraction: 1.0)
+    NSGraphicsContext.restoreGraphicsState()
+    guard let png = rep.representation(using: .png, properties: [:]) else { return nil }
+    return "data:image/png;base64," + png.base64EncodedString()
+}
+
 let axNotificationCallback: AXObserverCallback = { _, _, notification, refcon in
     guard let refcon = refcon else { return }
     let manager = Unmanaged<Manager>.fromOpaque(refcon).takeUnretainedValue()
@@ -222,6 +237,25 @@ final class Manager {
 
         if cmd == "snapshot" {
             scheduleSnapshot(reason: "request")
+            return
+        }
+
+        if cmd == "icon" {
+            guard let p = obj["path"] as? String else { return }
+            // NSWorkspace resolves the bundle's real icon (Electron's getFileIcon
+            // only yields the generic application icon for .app bundles).
+            let img = NSWorkspace.shared.icon(forFile: p)
+            emit(["type": "icon", "path": p, "data": pngDataURL(for: img, size: 96) ?? ""])
+            return
+        }
+
+        if cmd == "categories" {
+            guard let paths = obj["paths"] as? [String] else { return }
+            var items: [String: String] = [:]
+            for p in paths {
+                items[p] = (Bundle(path: p)?.infoDictionary?["LSApplicationCategoryType"] as? String) ?? ""
+            }
+            emit(["type": "categories", "items": items])
             return
         }
 
