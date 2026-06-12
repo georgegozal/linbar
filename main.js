@@ -489,7 +489,7 @@ function validateTask(raw) {
   const ref = Number(raw.ref);
   if (!process || !["system", "terminal", "browser", "native"].includes(kind)) return null;
   if (!Number.isFinite(ref) || ref < 1) return null;
-  const task = { process, kind, ref, title: String(raw.title || "") };
+  const task = { process, kind, ref, title: String(raw.title || ""), minimized: Boolean(raw.minimized) };
   if (kind === "native") {
     const pid = Number(raw.pid);
     if (!Number.isFinite(pid) || pid < 1) return null;
@@ -555,9 +555,16 @@ ipcMain.on("window:contextmenu", (_e, rawTask) => {
   if (!task) return;
   const win = BrowserWindow.fromWebContents(_e.sender);
   const menu = Menu.buildFromTemplate([
-    { label: "Bring to Front", click: () => void performTaskAction(task, "activate") },
+    {
+      label: task.minimized ? "Restore" : "Bring to Front",
+      click: () => void performTaskAction(task, "activate"),
+    },
     { type: "separator" },
-    { label: "Minimize", click: () => void performTaskAction(task, "minimize") },
+    {
+      label: "Minimize",
+      enabled: !task.minimized,
+      click: () => void performTaskAction(task, "minimize"),
+    },
     { label: "Close Window", click: () => void performTaskAction(task, "close") },
   ]);
   menu.popup({ window: win });

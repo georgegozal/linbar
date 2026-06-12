@@ -214,6 +214,19 @@ body {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.12);
 }
 
+/* XFCE shows minimized windows dimmed/italic. */
+.task-btn.minimized {
+  color: #6e6e6e;
+}
+
+.task-btn.minimized .task-label {
+  font-style: italic;
+}
+
+.task-btn.minimized .task-ico {
+  opacity: 0.55;
+}
+
 .task-ico {
   width: 18px;
   height: 18px;

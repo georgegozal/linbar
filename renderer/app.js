@@ -108,7 +108,7 @@
     }).catch(() => {});
   }
 
-  function createTaskButton(t) {
+  function createTaskButton() {
     const b = document.createElement("button");
     b.type = "button";
     const ico = document.createElement("span");
@@ -117,9 +117,31 @@
     const lab = document.createElement("span");
     lab.className = "task-label";
     b.append(ico, lab);
+
+    // XFCE semantics: click focuses; clicking the active window minimizes it;
+    // middle-click closes; right-click opens the window menu.
+    b.addEventListener("click", () => {
+      const t = b._task;
+      if (!t) return;
+      if (b.classList.contains("active") && !b.classList.contains("minimized")) {
+        b.classList.remove("active");
+        b.classList.add("minimized");
+        tb.minimizeTask(t);
+      } else {
+        b.classList.remove("minimized");
+        setOptimisticActive(taskKey(t));
+        tb.activateTask(t);
+      }
+    });
+    b.addEventListener("auxclick", (e) => {
+      if (e.button !== 1) return;
+      const t = b._task;
+      if (t) tb.closeTask(t);
+    });
     b.addEventListener("contextmenu", (e) => {
       e.preventDefault();
-      tb.contextMenuTask(t);
+      const t = b._task;
+      if (t) tb.contextMenuTask(t);
     });
     return b;
   }
@@ -132,18 +154,13 @@
   }
 
   function patchTaskButton(button, t, active) {
-    button.className = "task-btn" + (active ? " active" : "");
+    button._task = t;
+    button._taskKey = taskKey(t);
+    button.className =
+      "task-btn" + (active ? " active" : "") + (t.minimized ? " minimized" : "");
     button.title = t.process + " — " + t.title;
     const label = button.querySelector(".task-label");
     if (label && label.textContent !== t.title) label.textContent = t.title;
-    if (button._taskKey !== taskKey(t)) {
-      button._taskKey = taskKey(t);
-      button.onclick = () => {
-        setOptimisticActive(taskKey(t));
-        tb.activateTask(t);
-      };
-      button.oncontextmenu = (e) => { e.preventDefault(); tb.contextMenuTask(t); };
-    }
     // Apply cached icon immediately or fetch
     const cachedUrl = iconCache.get(t.process);
     if (cachedUrl) {
@@ -176,7 +193,7 @@
       const key = taskKey(t);
       nextKeys.add(key);
       const active = isFrontTask(t, front);
-      const b = taskButtonByKey.get(key) || createTaskButton(t);
+      const b = taskButtonByKey.get(key) || createTaskButton();
       patchTaskButton(b, t, active);
       taskButtonByKey.set(key, b);
       frag.appendChild(b);
