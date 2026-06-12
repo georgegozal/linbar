@@ -220,6 +220,19 @@ body {
   cursor: pointer;
   font: inherit;
   color: var(--window-title);
+  transition: background 120ms ease-out, color 120ms ease-out, opacity 120ms ease-out;
+  animation: task-in 140ms ease-out;
+}
+
+@keyframes task-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .task-btn:hover {
