@@ -186,6 +186,23 @@ body {
   background: linear-gradient(180deg, #f0d060 0%, #d4a017 100%);
 }
 
+.ql-list {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ql-app {
+  background: linear-gradient(180deg, #e8e8e8 0%, #cfcfcf 100%) center/cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #555;
+  box-shadow: none;
+}
+
 .task-btn {
   height: 34px;
   flex: 1 1 0;

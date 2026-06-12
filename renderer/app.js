@@ -71,6 +71,39 @@
   let applyTimer = null;
   let pendingPayload = null;
 
+  // --- Pinned launchers (XFCE launcher items) ---
+  const quickLaunch = document.getElementById("quickLaunch");
+
+  function renderPins(pinned) {
+    if (!quickLaunch) return;
+    quickLaunch.replaceChildren();
+    for (const appName of pinned || []) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "icon-btn pin-btn";
+      b.title = appName;
+      b.setAttribute("aria-label", appName);
+      const ico = document.createElement("span");
+      ico.className = "ql-icon ql-app";
+      ico.textContent = appName.slice(0, 1);
+      b.appendChild(ico);
+      tb.getAppIcon(appName).then((url) => {
+        if (!url) return;
+        ico.textContent = "";
+        ico.style.backgroundImage = `url("${url}")`;
+      }).catch(() => {});
+      b.addEventListener("click", () => tb.openApp(appName));
+      b.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        tb.contextMenuPin(appName);
+      });
+      quickLaunch.appendChild(b);
+    }
+  }
+
+  tb.getPins().then(renderPins).catch(() => {});
+  if (typeof tb.subscribePins === "function") tb.subscribePins(renderPins);
+
   /** process name -> data URL string | null (null = fetch in progress or failed) */
   const iconCache = new Map();
 

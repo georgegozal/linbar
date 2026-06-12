@@ -14,6 +14,7 @@ const {
 } = require("./lib/applescript");
 const { getFrontmostAppName } = require("./lib/lsappinfo");
 const { startNativeTracker } = require("./lib/helper");
+const { loadConfig, saveConfig } = require("./lib/config");
 
 const PANEL_HEIGHT = 48;
 const DEBUG_TASKS = process.env.LINBAR_DEBUG_TASKS === "1";
@@ -532,6 +533,39 @@ ipcMain.handle("window:close", async (_e, rawTask) => {
   }
 });
 
+function broadcastPins() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send("taskbar:pinsUpdated", loadConfig().pinned);
+}
+
+function togglePin(appName) {
+  const pinned = [...loadConfig().pinned];
+  const idx = pinned.indexOf(appName);
+  if (idx === -1) pinned.push(appName);
+  else pinned.splice(idx, 1);
+  saveConfig({ pinned });
+  broadcastPins();
+}
+
+ipcMain.handle("pins:list", () => loadConfig().pinned);
+
+ipcMain.handle("pins:toggle", (_e, appName) => {
+  if (!appName || typeof appName !== "string") return { ok: false };
+  togglePin(appName);
+  return { ok: true, pinned: loadConfig().pinned };
+});
+
+ipcMain.on("pins:contextmenu", (_e, appName) => {
+  if (!appName || typeof appName !== "string") return;
+  const win = BrowserWindow.fromWebContents(_e.sender);
+  const menu = Menu.buildFromTemplate([
+    { label: "Open " + appName, click: () => void openApp(appName).catch(() => {}) },
+    { type: "separator" },
+    { label: "Unpin from Taskbar", click: () => togglePin(appName) },
+  ]);
+  menu.popup({ window: win });
+});
+
 async function performTaskAction(task, action) {
   try {
     if (task.kind === "native") {
@@ -554,6 +588,7 @@ ipcMain.on("window:contextmenu", (_e, rawTask) => {
   const task = validateTask(rawTask);
   if (!task) return;
   const win = BrowserWindow.fromWebContents(_e.sender);
+  const isPinned = loadConfig().pinned.includes(task.process);
   const menu = Menu.buildFromTemplate([
     {
       label: task.minimized ? "Restore" : "Bring to Front",
@@ -566,6 +601,11 @@ ipcMain.on("window:contextmenu", (_e, rawTask) => {
       click: () => void performTaskAction(task, "minimize"),
     },
     { label: "Close Window", click: () => void performTaskAction(task, "close") },
+    { type: "separator" },
+    {
+      label: isPinned ? "Unpin from Taskbar" : "Pin to Taskbar",
+      click: () => togglePin(task.process),
+    },
   ]);
   menu.popup({ window: win });
 });

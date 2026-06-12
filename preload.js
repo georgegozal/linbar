@@ -7,6 +7,13 @@ function subscribeTasks(listener) {
   return () => ipcRenderer.removeListener("taskbar:tasksUpdated", handler);
 }
 
+function subscribePins(listener) {
+  if (typeof listener !== "function") return () => {};
+  const handler = (_event, pinned) => listener(pinned);
+  ipcRenderer.on("taskbar:pinsUpdated", handler);
+  return () => ipcRenderer.removeListener("taskbar:pinsUpdated", handler);
+}
+
 contextBridge.exposeInMainWorld("taskbar", {
   listTasks: () => ipcRenderer.invoke("tasks:list"),
   subscribeTasks,
@@ -15,6 +22,10 @@ contextBridge.exposeInMainWorld("taskbar", {
   minimizeTask: (task) => ipcRenderer.invoke("window:minimize", task),
   closeTask: (task) => ipcRenderer.invoke("window:close", task),
   contextMenuTask: (task) => ipcRenderer.send("window:contextmenu", task),
+  getPins: () => ipcRenderer.invoke("pins:list"),
+  togglePin: (appName) => ipcRenderer.invoke("pins:toggle", appName),
+  subscribePins,
+  contextMenuPin: (appName) => ipcRenderer.send("pins:contextmenu", appName),
   getAppIcon: (appName) => ipcRenderer.invoke("icon:get", appName),
   openApp: (appName) => ipcRenderer.invoke("app:open", appName),
   openPath: (target) => ipcRenderer.invoke("path:open", target),
