@@ -39,10 +39,14 @@
   const DRAWER_H = 560;
   const CALENDAR_H = 380;
 
+  const volPop = document.getElementById("volPop");
+  const VOL_H = 160;
+
   function syncPanelHeight() {
     let h = PANEL_H;
     if (!startMenu.hidden) h = DRAWER_H;
     else if (!calendarPop.hidden) h = CALENDAR_H;
+    else if (!volPop.hidden) h = VOL_H;
     tb.setPanelHeight(h);
   }
 
@@ -142,6 +146,7 @@
     startMenu.hidden = !open;
     if (open) {
       calendarPop.hidden = true;
+      volPop.hidden = true;
       void loadDrawer();
       drawerSearch.value = "";
       filterDrawer("");
@@ -159,6 +164,7 @@
   document.addEventListener("click", () => {
     setStartOpen(false);
     setCalendarOpen(false);
+    setVolOpen(false);
   });
   startMenu.addEventListener("click", (e) => e.stopPropagation());
 
@@ -203,6 +209,7 @@
     calendarPop.hidden = !open;
     if (open) {
       startMenu.hidden = true;
+      volPop.hidden = true;
       calCursor = new Date();
       renderCalendar();
     }
@@ -460,19 +467,52 @@
     tb.getClipboardPreview();
   });
 
+  // --- Volume: click opens a slider popup, scroll adjusts directly ---
+  const volSlider = document.getElementById("volSlider");
+  const volLevel = document.getElementById("volLevel");
+  const volMuteBtn = document.getElementById("volMuteBtn");
+
   function applyVolumeUi(v) {
-    trayVol.classList.toggle("muted", !!v.muted);
-    trayVol.title = (v.muted ? "Muted" : "Volume " + Math.round(v.level) + "%") + " — click to toggle, scroll to adjust";
+    const muted = !!v.muted;
+    trayVol.classList.toggle("muted", muted);
+    trayVol.title = muted ? "Muted" : "Volume " + Math.round(v.level) + "% — scroll to adjust";
+    volSlider.value = Math.round(v.level);
+    volLevel.textContent = Math.round(v.level) + "%";
+    volMuteBtn.textContent = muted ? "Unmute" : "Mute";
   }
 
   async function syncVolumeUi() {
     applyVolumeUi(await tb.getVolume());
   }
 
+  function setVolOpen(open) {
+    volPop.hidden = !open;
+    if (open) {
+      startMenu.hidden = true;
+      calendarPop.hidden = true;
+      void syncVolumeUi();
+    }
+    syncPanelHeight();
+  }
+
   syncVolumeUi();
-  trayVol.addEventListener("click", async () => {
-    await tb.toggleMute();
-    syncVolumeUi();
+  trayVol.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setVolOpen(volPop.hidden);
+  });
+  volPop.addEventListener("click", (e) => e.stopPropagation());
+
+  let volSetTimer = null;
+  volSlider.addEventListener("input", () => {
+    volLevel.textContent = volSlider.value + "%";
+    if (volSetTimer) clearTimeout(volSetTimer);
+    volSetTimer = setTimeout(async () => {
+      applyVolumeUi(await tb.setVolume(Number(volSlider.value)));
+    }, 120);
+  });
+
+  volMuteBtn.addEventListener("click", async () => {
+    applyVolumeUi(await tb.toggleMute());
   });
 
   let volWheelBusy = false;
@@ -486,4 +526,31 @@
       volWheelBusy = false;
     }
   }, { passive: false });
+
+  // --- Battery indicator (hidden on machines without one) ---
+  const trayBatt = document.getElementById("trayBatt");
+  const battPct = document.getElementById("battPct");
+
+  async function syncBattery() {
+    try {
+      const b = await tb.getBattery();
+      if (!b.present || b.percent == null) {
+        trayBatt.hidden = true;
+        return;
+      }
+      trayBatt.hidden = false;
+      battPct.textContent = b.percent + "%";
+      trayBatt.classList.toggle("charging", b.onAC);
+      trayBatt.classList.toggle("low", !b.onAC && b.percent <= 15);
+      trayBatt.title = "Battery " + b.percent + "%" + (b.state ? " (" + b.state + ")" : "");
+      const fill = trayBatt.querySelector(".batt-fill");
+      if (fill) fill.setAttribute("width", String(Math.max(1, (13 * b.percent) / 100)));
+    } catch {
+      trayBatt.hidden = true;
+    }
+  }
+
+  syncBattery();
+  setInterval(syncBattery, 60_000);
+  trayBatt.addEventListener("click", () => tb.openBatterySettings());
 })();

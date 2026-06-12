@@ -446,6 +446,41 @@ ipcMain.handle("audio:changeVolume", async (_e, rawDelta) => {
   }
 });
 
+ipcMain.handle("audio:setVolume", async (_e, rawLevel) => {
+  const level = Math.max(0, Math.min(100, Math.round(Number(rawLevel) || 0)));
+  try {
+    await setOutputVolume(level);
+    return { muted: false, level };
+  } catch (err) {
+    return { muted: false, level: 0, error: String(err && err.message ? err.message : err) };
+  }
+});
+
+ipcMain.handle("battery:get", () => {
+  return new Promise((resolve) => {
+    execFile("/usr/bin/pmset", ["-g", "batt"], (err, stdout) => {
+      const out = String(stdout || "");
+      if (err || !/InternalBattery/.test(out)) return resolve({ present: false });
+      const m = out.match(/(\d+)%;\s*([\w ]+?);/);
+      resolve({
+        present: true,
+        percent: m ? Number(m[1]) : null,
+        state: m ? m[2].trim() : "",
+        onAC: /AC Power/.test(out),
+      });
+    });
+  });
+});
+
+ipcMain.handle("sys:batterySettings", async () => {
+  try {
+    await openTarget("x-apple.systempreferences:com.apple.Battery-Settings.extension");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
 ipcMain.handle("audio:toggleMute", async () => {
   try {
     await toggleOutputMuted();

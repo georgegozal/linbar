@@ -20,6 +20,14 @@
     </div>
   </div>
 
+  <div class="vol-pop" id="volPop" hidden>
+    <div class="vol-row">
+      <input type="range" id="volSlider" min="0" max="100" step="1" aria-label="Output volume" />
+      <span class="vol-level" id="volLevel">—</span>
+    </div>
+    <button type="button" id="volMuteBtn">Mute</button>
+  </div>
+
   <div class="calendar-pop" id="calendarPop" hidden>
     <div class="cal-head">
       <button type="button" id="calPrev" aria-label="Previous month">&#8249;</button>
@@ -60,16 +68,26 @@
             <path d="M13.73 21a2 2 0 01-3.46 0"/>
           </svg>
         </button>
-        <button type="button" class="tray-btn" id="trayClip" title="Clipboard" aria-label="Clipboard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <rect x="9" y="2" width="6" height="4" rx="1"/>
-            <path d="M8 6h8v16H8z"/>
+        <button type="button" class="tray-btn" id="trayClip" title="Clipboard preview" aria-label="Clipboard preview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/>
+            <rect x="8" y="2" width="8" height="4" rx="1"/>
+            <path d="M9 11h6M9 15h6"/>
           </svg>
         </button>
-        <button type="button" class="tray-btn tray-btn--vol" id="trayVol" title="Mute / unmute" aria-label="Volume mute toggle">
-          <svg id="trayVolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <button type="button" class="tray-btn tray-btn--batt" id="trayBatt" title="Battery" aria-label="Battery" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="2" y="7" width="17" height="10" rx="2"/>
+            <path d="M22 11v2"/>
+            <rect class="batt-fill" x="4.5" y="9.5" width="6" height="5" rx="0.5" fill="currentColor" stroke="none"/>
+          </svg>
+          <span class="batt-pct" id="battPct"></span>
+        </button>
+        <button type="button" class="tray-btn tray-btn--vol" id="trayVol" title="Volume" aria-label="Volume">
+          <svg id="trayVolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
             <path d="M11 5L6 9H2v6h4l5 4z"/>
-            <path d="M19 9a7 7 0 010 6M15.54 11.54a3 3 0 010 3"/>
+            <path class="vol-waves" d="M19 9a7 7 0 010 6M15.54 11.54a3 3 0 010 3"/>
+            <path class="vol-x" d="M16 9l6 6M22 9l-6 6"/>
           </svg>
         </button>
 

@@ -296,8 +296,89 @@ body {
   height: 20px;
 }
 
-.tray-btn--vol.muted {
-  opacity: 0.45;
+.tray-btn--vol .vol-x {
+  display: none;
+}
+
+.tray-btn--vol.muted .vol-x {
+  display: block;
+  stroke: #c0392b;
+}
+
+.tray-btn--vol.muted .vol-waves {
+  display: none;
+}
+
+.tray-btn--batt {
+  width: auto;
+  padding: 0 8px;
+  gap: 4px;
+}
+
+.batt-pct {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tray-btn--batt.charging .batt-pct {
+  color: #2e7d32;
+}
+
+.tray-btn--batt.low .batt-pct,
+.tray-btn--batt.low svg {
+  color: #c0392b;
+}
+
+.vol-pop {
+  position: fixed;
+  bottom: calc(var(--panel-h) + 6px);
+  right: 8px;
+  width: 230px;
+  background: #f2f2f2;
+  border: 1px solid #888;
+  box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.25);
+  z-index: 60;
+  padding: 12px;
+}
+
+.vol-pop[hidden] {
+  display: none !important;
+}
+
+.vol-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#volSlider {
+  flex: 1 1 auto;
+  accent-color: var(--mint-start);
+}
+
+.vol-level {
+  flex: 0 0 38px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+#volMuteBtn {
+  width: 100%;
+  padding: 6px 0;
+  border: 1px solid var(--btn-border);
+  border-radius: 4px;
+  background: var(--btn-face);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#volMuteBtn:hover {
+  background: #d9e8f7;
 }
 
 .clock {
