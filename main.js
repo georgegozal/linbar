@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, screen, Menu, shell } = require("electron")
 const path = require("node:path");
 const {
   listTaskSnapshot,
+  getFrontmostWindowTask,
   activateWindowTask,
   openApp,
   getAppBundlePath,
@@ -11,12 +12,14 @@ const {
   getVolumeState,
   getClipboardText,
 } = require("./lib/applescript");
+const { getFrontmostAppName } = require("./lib/lsappinfo");
 
 const PANEL_HEIGHT = 48;
 const DEBUG_TASKS = process.env.LINBAR_DEBUG_TASKS === "1";
 const TASK_REFRESH_ACTIVE_MS = 1600;
 const TASK_REFRESH_IDLE_MS = 4000;
 const TASK_ACTIVE_WINDOW_MS = 8000;
+const FRONT_POLL_MS = 700;
 
 let mainWindow = null;
 let taskRefreshTimer = null;
@@ -24,6 +27,8 @@ let taskRefreshInFlight = false;
 let lastInteractionAt = 0;
 let lastTaskPayload = null;
 let lastTaskSnapshot = "";
+let frontPollInFlight = false;
+let lastFrontAppName = "";
 
 function nowMs() {
   return Number(process.hrtime.bigint()) / 1e6;
@@ -93,6 +98,37 @@ async function runTaskRefresh(reason) {
   } finally {
     taskRefreshInFlight = false;
     scheduleTaskRefresh();
+  }
+}
+
+/**
+ * Cheap focus tracker: lsappinfo tells us the frontmost app in ~20ms. Only when it
+ * changes do we resolve the exact frontmost window (1 osascript) and re-emit, so the
+ * active highlight follows Cmd+Tab without waiting for a full window scan.
+ */
+async function pollFrontmost() {
+  if (frontPollInFlight || !lastTaskPayload) return;
+  frontPollInFlight = true;
+  try {
+    const appName = await getFrontmostAppName();
+    if (!appName || appName === lastFrontAppName) return;
+    lastFrontAppName = appName;
+    const front = await getFrontmostWindowTask();
+    if (!front || !lastTaskPayload) return;
+    const prev = lastTaskPayload.front;
+    if (prev && prev.key === front.key) return;
+    lastTaskPayload = { ...lastTaskPayload, front };
+    lastTaskSnapshot = JSON.stringify({
+      tasks: lastTaskPayload.tasks,
+      front: lastTaskPayload.front,
+      error: lastTaskPayload.error,
+    });
+    emitTaskPayload(lastTaskPayload);
+    if (DEBUG_TASKS) console.log("[LinBar] front changed ->", front.key);
+  } catch {
+    /* transient; next tick will retry */
+  } finally {
+    frontPollInFlight = false;
   }
 }
 
@@ -412,6 +448,7 @@ app.whenReady().then(() => {
   createWindow();
   markTaskInteraction();
   scheduleTaskRefresh(0);
+  setInterval(() => void pollFrontmost(), FRONT_POLL_MS);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
