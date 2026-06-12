@@ -39,7 +39,13 @@ contextBridge.exposeInMainWorld("taskbar", {
   setVolume: (level) => ipcRenderer.invoke("audio:setVolume", level),
   getBattery: () => ipcRenderer.invoke("battery:get"),
   openBatterySettings: () => ipcRenderer.invoke("sys:batterySettings"),
-  setPanelHeight: (h) => ipcRenderer.send("panel:setHeight", h),
+  setMouseIgnore: (ignore) => ipcRenderer.send("panel:setMouseIgnore", ignore),
+  onBlur: (listener) => {
+    if (typeof listener !== "function") return () => {};
+    const handler = () => listener();
+    ipcRenderer.on("taskbar:blurred", handler);
+    return () => ipcRenderer.removeListener("taskbar:blurred", handler);
+  },
   getClipboardPreview: () => ipcRenderer.invoke("clipboard:preview"),
   openAboutMac: () => ipcRenderer.invoke("sys:aboutMac"),
   openNotificationSettings: () => ipcRenderer.invoke("sys:notificationSettings"),

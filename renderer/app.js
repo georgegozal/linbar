@@ -33,22 +33,28 @@
   tickClock();
   setInterval(tickClock, 1000);
 
-  // Popups live above the 48px bar, so the window must grow while one is open.
   const calendarPop = document.getElementById("calendarPop");
-  const PANEL_H = 48;
-  const DRAWER_H = 560;
-  const CALENDAR_H = 380;
-
   const volPop = document.getElementById("volPop");
-  const VOL_H = 160;
 
-  function syncPanelHeight() {
-    let h = PANEL_H;
-    if (!startMenu.hidden) h = DRAWER_H;
-    else if (!calendarPop.hidden) h = CALENDAR_H;
-    else if (!volPop.hidden) h = VOL_H;
-    tb.setPanelHeight(h);
+  // The window is permanently tall and click-through; re-enable mouse events
+  // only while the cursor is over the bar or an open popup. Forwarded
+  // mousemove events keep arriving even in ignore mode, so we can flip back.
+  let mouseIgnored = true;
+  function setMouseIgnore(flag) {
+    if (flag === mouseIgnored) return;
+    mouseIgnored = flag;
+    tb.setMouseIgnore(flag);
   }
+
+  document.addEventListener("mousemove", (e) => {
+    const over =
+      e.target && e.target.closest
+        ? e.target.closest(".panel-wrap, .start-menu, .calendar-pop, .vol-pop")
+        : null;
+    setMouseIgnore(!over);
+  });
+
+  document.addEventListener("mouseleave", () => setMouseIgnore(true));
 
   // --- App drawer (Whisker-menu style) ---
   const drawerSearch = document.getElementById("drawerSearch");
@@ -153,7 +159,6 @@
       setTimeout(() => drawerSearch.focus(), 0);
     }
     startBtn.setAttribute("aria-expanded", open ? "true" : "false");
-    syncPanelHeight();
   }
 
   startBtn.addEventListener("click", (e) => {
@@ -161,11 +166,15 @@
     setStartOpen(startMenu.hidden);
   });
 
-  document.addEventListener("click", () => {
+  function closeAllPopups() {
     setStartOpen(false);
     setCalendarOpen(false);
     setVolOpen(false);
-  });
+  }
+
+  document.addEventListener("click", closeAllPopups);
+  // Focus moving to another app counts as clicking outside.
+  if (typeof tb.onBlur === "function") tb.onBlur(closeAllPopups);
   startMenu.addEventListener("click", (e) => e.stopPropagation());
 
   // --- Calendar popup (Orage-style) ---
@@ -213,7 +222,6 @@
       calCursor = new Date();
       renderCalendar();
     }
-    syncPanelHeight();
   }
 
   document.getElementById("clock").addEventListener("click", (e) => {
@@ -492,7 +500,6 @@
       calendarPop.hidden = true;
       void syncVolumeUi();
     }
-    syncPanelHeight();
   }
 
   syncVolumeUi();

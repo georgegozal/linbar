@@ -33,6 +33,8 @@ const { startNativeTracker } = require("./lib/helper");
 const { loadConfig, saveConfig } = require("./lib/config");
 
 const PANEL_HEIGHT = 48;
+/** Window is always tall enough for popups; the area above the bar is click-through. */
+const WINDOW_HEIGHT = 600;
 const DEBUG_TASKS = process.env.LINBAR_DEBUG_TASKS === "1";
 const FORCE_APPLESCRIPT = process.env.LINBAR_FORCE_APPLESCRIPT === "1";
 const TASK_REFRESH_ACTIVE_MS = 1600;
@@ -264,9 +266,9 @@ function panelBoundsForDisplay(display) {
   const { x, y, width, height } = display.bounds;
   return {
     x,
-    y: y + height - PANEL_HEIGHT,
+    y: y + height - WINDOW_HEIGHT,
     width,
-    height: PANEL_HEIGHT,
+    height: WINDOW_HEIGHT,
   };
 }
 
@@ -310,6 +312,17 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+
+  // Start click-through; the renderer re-enables mouse events whenever the
+  // cursor is over the bar or an open popup (mousemove keeps being forwarded).
+  mainWindow.setIgnoreMouseEvents(true, { forward: true });
+
+  // Clicking any other app means "clicked outside" — let the renderer close popups.
+  mainWindow.on("blur", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("taskbar:blurred");
+    }
+  });
 
   screen.on("display-metrics-changed", () => {
     if (mainWindow && !mainWindow.isDestroyed()) positionPanelWindow(mainWindow);
@@ -422,16 +435,9 @@ ipcMain.handle("path:special", async (_e, key) => {
   return { ok: true };
 });
 
-/**
- * Popups (start menu, calendar) need room above the 48px bar: grow the window
- * upward while keeping the panel glued to the bottom edge, shrink when closed.
- */
-ipcMain.on("panel:setHeight", (_e, rawHeight) => {
+ipcMain.on("panel:setMouseIgnore", (_e, ignore) => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  const height = Math.max(PANEL_HEIGHT, Math.min(600, Math.floor(Number(rawHeight) || PANEL_HEIGHT)));
-  const display = screen.getDisplayNearestPoint(mainWindow.getBounds());
-  const b = display.bounds;
-  mainWindow.setBounds({ x: b.x, y: b.y + b.height - height, width: b.width, height });
+  mainWindow.setIgnoreMouseEvents(Boolean(ignore), { forward: true });
 });
 
 ipcMain.handle("audio:changeVolume", async (_e, rawDelta) => {
