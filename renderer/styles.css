@@ -342,6 +342,82 @@ body {
   color: #c0392b;
 }
 
+.clip-pop {
+  position: fixed;
+  bottom: calc(var(--panel-h) + 6px);
+  right: 84px;
+  width: 252px;
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  background: #f2f2f2;
+  border: 1px solid #888;
+  box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.25);
+  z-index: 60;
+  padding: 8px;
+}
+
+.clip-pop[hidden] {
+  display: none !important;
+}
+
+.clip-title {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #444;
+  padding: 2px 4px 8px;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 6px;
+}
+
+.clip-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.clip-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.clip-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+}
+
+.clip-item {
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clip-item:hover {
+  background: #d9e8f7;
+  border-color: #b5cfe7;
+}
+
+.clip-item.copied {
+  background: var(--mint-start);
+  color: #fff;
+}
+
+.clip-empty {
+  color: #888;
+  font-size: 12px;
+  padding: 8px 4px;
+}
+
 .vol-pop {
   position: fixed;
   bottom: calc(var(--panel-h) + 6px);

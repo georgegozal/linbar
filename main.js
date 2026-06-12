@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, Menu, shell, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, Menu, shell, clipboard } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -26,7 +26,6 @@ const {
   toggleOutputMuted,
   getVolumeState,
   setOutputVolume,
-  getClipboardText,
 } = require("./lib/applescript");
 const { getFrontmostAppName } = require("./lib/lsappinfo");
 const { startNativeTracker } = require("./lib/helper");
@@ -504,24 +503,40 @@ ipcMain.handle("audio:getVolume", async () => {
   }
 });
 
-ipcMain.handle("clipboard:preview", async (_e) => {
-  let preview = "";
-  try {
-    const text = await getClipboardText();
-    const trimmed = text.replace(/\s+/g, " ").trim();
-    preview = trimmed.length > 600 ? trimmed.slice(0, 600) + "…" : trimmed;
-  } catch (err) {
-    preview = "Clipboard unavailable: " + String(err && err.message ? err.message : err);
+// In-memory clipboard history (never persisted; items stay on this machine).
+const CLIP_HISTORY_MAX = 20;
+const CLIP_ITEM_MAX_CHARS = 5000;
+const clipHistory = [];
+let lastClipText = "";
+
+function watchClipboard() {
+  setInterval(() => {
+    try {
+      let text = clipboard.readText();
+      if (!text || text === lastClipText) return;
+      lastClipText = text;
+      if (text.length > CLIP_ITEM_MAX_CHARS) text = text.slice(0, CLIP_ITEM_MAX_CHARS);
+      const idx = clipHistory.indexOf(text);
+      if (idx !== -1) clipHistory.splice(idx, 1);
+      clipHistory.unshift(text);
+      if (clipHistory.length > CLIP_HISTORY_MAX) clipHistory.pop();
+    } catch {
+      /* clipboard may hold non-text content */
+    }
+  }, 1500);
+}
+
+ipcMain.handle("clipboard:history", () => clipHistory);
+
+ipcMain.handle("clipboard:copy", (_e, text) => {
+  if (typeof text !== "string") return { ok: false };
+  clipboard.writeText(text);
+  lastClipText = text;
+  const idx = clipHistory.indexOf(text);
+  if (idx > 0) {
+    clipHistory.splice(idx, 1);
+    clipHistory.unshift(text);
   }
-  // window.alert cannot render inside the 48px panel window; use a native dialog.
-  const win = BrowserWindow.fromWebContents(_e.sender);
-  dialog.showMessageBox(win, {
-    type: "none",
-    title: "Clipboard",
-    message: "Clipboard contents",
-    detail: preview || "(empty)",
-    buttons: ["OK"],
-  });
   return { ok: true };
 });
 
@@ -858,6 +873,7 @@ app.whenReady().then(() => {
   setMacMenu();
   createWindow();
   startBackend();
+  watchClipboard();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

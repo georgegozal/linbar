@@ -46,7 +46,8 @@ contextBridge.exposeInMainWorld("taskbar", {
     ipcRenderer.on("taskbar:blurred", handler);
     return () => ipcRenderer.removeListener("taskbar:blurred", handler);
   },
-  getClipboardPreview: () => ipcRenderer.invoke("clipboard:preview"),
+  getClipboardHistory: () => ipcRenderer.invoke("clipboard:history"),
+  copyClipboardItem: (text) => ipcRenderer.invoke("clipboard:copy", text),
   openAboutMac: () => ipcRenderer.invoke("sys:aboutMac"),
   openNotificationSettings: () => ipcRenderer.invoke("sys:notificationSettings"),
   openSystemSettings: () => ipcRenderer.invoke("sys:settings"),

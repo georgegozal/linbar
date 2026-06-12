@@ -35,6 +35,7 @@
 
   const calendarPop = document.getElementById("calendarPop");
   const volPop = document.getElementById("volPop");
+  const clipPop = document.getElementById("clipPop");
 
   // The window is permanently tall and click-through; re-enable mouse events
   // only while the cursor is over the bar or an open popup. Forwarded
@@ -49,7 +50,7 @@
   document.addEventListener("mousemove", (e) => {
     const over =
       e.target && e.target.closest
-        ? e.target.closest(".panel-wrap, .start-menu, .calendar-pop, .vol-pop")
+        ? e.target.closest(".panel-wrap, .start-menu, .calendar-pop, .vol-pop, .clip-pop")
         : null;
     setMouseIgnore(!over);
   });
@@ -153,6 +154,7 @@
     if (open) {
       calendarPop.hidden = true;
       volPop.hidden = true;
+      clipPop.hidden = true;
       void loadDrawer();
       drawerSearch.value = "";
       filterDrawer("");
@@ -170,6 +172,7 @@
     setStartOpen(false);
     setCalendarOpen(false);
     setVolOpen(false);
+    setClipOpen(false);
   }
 
   document.addEventListener("click", closeAllPopups);
@@ -219,6 +222,7 @@
     if (open) {
       startMenu.hidden = true;
       volPop.hidden = true;
+      clipPop.hidden = true;
       calCursor = new Date();
       renderCalendar();
     }
@@ -471,9 +475,50 @@
   document.getElementById("trayAbout").addEventListener("click", () => tb.openAboutMac());
   document.getElementById("trayNotif").addEventListener("click", () => tb.openNotificationSettings());
 
-  document.getElementById("trayClip").addEventListener("click", () => {
-    tb.getClipboardPreview();
+  // --- Clipboard history popup ---
+  const clipList = document.getElementById("clipList");
+  const trayClip = document.getElementById("trayClip");
+
+  async function renderClipHistory() {
+    const items = await tb.getClipboardHistory();
+    clipList.replaceChildren();
+    if (!items.length) {
+      const empty = document.createElement("div");
+      empty.className = "clip-empty";
+      empty.textContent = "Nothing copied yet.";
+      clipList.appendChild(empty);
+      return;
+    }
+    for (const text of items) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "clip-item";
+      b.textContent = text.replace(/\s+/g, " ").trim().slice(0, 100) || "(whitespace)";
+      b.title = "Click to copy";
+      b.addEventListener("click", async () => {
+        await tb.copyClipboardItem(text);
+        b.classList.add("copied");
+        setTimeout(() => setClipOpen(false), 250);
+      });
+      clipList.appendChild(b);
+    }
+  }
+
+  function setClipOpen(open) {
+    clipPop.hidden = !open;
+    if (open) {
+      startMenu.hidden = true;
+      calendarPop.hidden = true;
+      volPop.hidden = true;
+      void renderClipHistory();
+    }
+  }
+
+  trayClip.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setClipOpen(clipPop.hidden);
   });
+  clipPop.addEventListener("click", (e) => e.stopPropagation());
 
   // --- Volume: click opens a slider popup, scroll adjusts directly ---
   const volSlider = document.getElementById("volSlider");
@@ -498,6 +543,7 @@
     if (open) {
       startMenu.hidden = true;
       calendarPop.hidden = true;
+      clipPop.hidden = true;
       void syncVolumeUi();
     }
   }
