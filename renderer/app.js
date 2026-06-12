@@ -124,6 +124,13 @@
     return b;
   }
 
+  /** Reflect a click immediately; the next snapshot confirms or corrects it. */
+  function setOptimisticActive(key) {
+    for (const [k, btn] of taskButtonByKey.entries()) {
+      btn.classList.toggle("active", k === key);
+    }
+  }
+
   function patchTaskButton(button, t, active) {
     button.className = "task-btn" + (active ? " active" : "");
     button.title = t.process + " — " + t.title;
@@ -131,7 +138,10 @@
     if (label && label.textContent !== t.title) label.textContent = t.title;
     if (button._taskKey !== taskKey(t)) {
       button._taskKey = taskKey(t);
-      button.onclick = () => tb.activateTask(t);
+      button.onclick = () => {
+        setOptimisticActive(taskKey(t));
+        tb.activateTask(t);
+      };
       button.oncontextmenu = (e) => { e.preventDefault(); tb.contextMenuTask(t); };
     }
     // Apply cached icon immediately or fetch
