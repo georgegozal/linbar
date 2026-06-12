@@ -814,6 +814,14 @@ ipcMain.handle("pins:toggle", (_e, appName) => {
   return { ok: true, pinned: loadConfig().pinned };
 });
 
+ipcMain.handle("drawer:getView", () => loadConfig().drawerView);
+
+ipcMain.handle("drawer:setView", (_e, view) => {
+  const drawerView = view === "list" ? "list" : "icons";
+  saveConfig({ drawerView });
+  return { ok: true, drawerView };
+});
+
 ipcMain.on("pins:contextmenu", (_e, appName) => {
   if (!appName || typeof appName !== "string") return;
   const win = BrowserWindow.fromWebContents(_e.sender);

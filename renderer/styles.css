@@ -525,16 +525,64 @@ body {
 }
 
 #drawerSearch {
-  flex-shrink: 0;
+  flex: 1 1 auto;
   height: 32px;
   padding: 0 12px;
-  margin-bottom: 10px;
   border: 1px solid #b5b5b5;
   border-radius: 5px;
   background: #fff;
   font: inherit;
   outline: none;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+  min-width: 0;
+}
+
+.drawer-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.drawer-view-toggle {
+  flex-shrink: 0;
+  display: flex;
+  border: 1px solid #b5b5b5;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.drawer-view-btn {
+  width: 34px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  padding: 0;
+}
+
+.drawer-view-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.drawer-view-btn + .drawer-view-btn {
+  border-left: 1px solid #b5b5b5;
+}
+
+.drawer-view-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.drawer-view-btn.selected {
+  background: var(--mint-start);
+  color: #fff;
 }
 
 #drawerSearch:focus {
@@ -587,10 +635,50 @@ body {
 .drawer-grid {
   flex: 1 1 auto;
   overflow-y: auto;
+}
+
+.drawer-grid.drawer-view-icons {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
   gap: 4px;
   align-content: start;
+}
+
+.drawer-grid.drawer-view-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-content: stretch;
+}
+
+.drawer-view-list .drawer-item {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  width: 100%;
+}
+
+.drawer-view-list .drawer-ico {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+
+.drawer-view-list .drawer-label {
+  flex: 1 1 auto;
+  width: auto;
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: left;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
 }
 
 .drawer-grid::-webkit-scrollbar,
@@ -655,30 +743,6 @@ body {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   word-break: break-word;
-}
-
-.drawer-footer {
-  flex-shrink: 0;
-  display: flex;
-  gap: 6px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #ddd;
-}
-
-.drawer-footer button {
-  flex: 1 1 0;
-  padding: 7px 0;
-  border: 1px solid var(--btn-border);
-  border-radius: 4px;
-  background: var(--btn-face);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.drawer-footer button:hover {
-  background: #d9e8f7;
 }
 
 .clock {

@@ -61,9 +61,35 @@
   const drawerSearch = document.getElementById("drawerSearch");
   const drawerGrid = document.getElementById("drawerGrid");
   const drawerCats = document.getElementById("drawerCats");
+  const drawerViewIcons = document.getElementById("drawerViewIcons");
+  const drawerViewList = document.getElementById("drawerViewList");
   const CAT_ORDER = ["All", "Accessories", "Development", "Games", "Graphics", "Internet", "Multimedia", "Office", "System", "Other"];
   let drawerLoaded = false;
   let selectedCat = "All";
+  let drawerView = "icons";
+
+  function applyDrawerView(view) {
+    drawerView = view === "list" ? "list" : "icons";
+    drawerGrid.classList.toggle("drawer-view-icons", drawerView === "icons");
+    drawerGrid.classList.toggle("drawer-view-list", drawerView === "list");
+    drawerViewIcons.classList.toggle("selected", drawerView === "icons");
+    drawerViewList.classList.toggle("selected", drawerView === "list");
+    drawerViewIcons.setAttribute("aria-pressed", drawerView === "icons" ? "true" : "false");
+    drawerViewList.setAttribute("aria-pressed", drawerView === "list" ? "true" : "false");
+  }
+
+  tb.getDrawerView().then((v) => applyDrawerView(v)).catch(() => {});
+
+  drawerViewIcons.addEventListener("click", (e) => {
+    e.stopPropagation();
+    applyDrawerView("icons");
+    tb.setDrawerView("icons");
+  });
+  drawerViewList.addEventListener("click", (e) => {
+    e.stopPropagation();
+    applyDrawerView("list");
+    tb.setDrawerView("list");
+  });
 
   const drawerIconObserver = new IntersectionObserver((entries) => {
     for (const entry of entries) {

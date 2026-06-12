@@ -8,15 +8,30 @@
 </head>
 <body>
   <div class="start-menu app-drawer" id="startMenu" aria-label="Applications" hidden>
-    <input type="search" id="drawerSearch" placeholder="Search applications…" autocomplete="off" spellcheck="false" />
+    <div class="drawer-head">
+      <input type="search" id="drawerSearch" placeholder="Search applications…" autocomplete="off" spellcheck="false" />
+      <div class="drawer-view-toggle" role="group" aria-label="Application list view">
+        <button type="button" class="drawer-view-btn selected" id="drawerViewIcons" title="Icon view" aria-label="Icon view" aria-pressed="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+        </button>
+        <button type="button" class="drawer-view-btn" id="drawerViewList" title="List view" aria-label="List view" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M8 6h13M8 12h13M8 18h13"/>
+            <circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/>
+            <circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+            <circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+      </div>
+    </div>
     <div class="drawer-body">
       <div class="drawer-cats" id="drawerCats" role="tablist"></div>
-      <div class="drawer-grid" id="drawerGrid" role="menu"></div>
-    </div>
-    <div class="drawer-footer">
-      <button type="button" data-action="special" data-arg="documents">Documents</button>
-      <button type="button" data-action="special" data-arg="downloads">Downloads</button>
-      <button type="button" data-action="settings">System Settings</button>
+      <div class="drawer-grid drawer-view-icons" id="drawerGrid" role="menu"></div>
     </div>
   </div>
 
