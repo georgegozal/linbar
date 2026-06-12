@@ -63,7 +63,23 @@
   const drawerCats = document.getElementById("drawerCats");
   const drawerViewIcons = document.getElementById("drawerViewIcons");
   const drawerViewList = document.getElementById("drawerViewList");
+  const drawerUserAvatar = document.getElementById("drawerUserAvatar");
+  const drawerUserName = document.getElementById("drawerUserName");
+  const drawerTerminal = document.getElementById("drawerTerminal");
+  const drawerPower = document.getElementById("drawerPower");
   const CAT_ORDER = ["All", "Accessories", "Development", "Games", "Graphics", "Internet", "Multimedia", "Office", "System", "Other"];
+  const CATEGORY_META = {
+    All: { label: "All Applications", ico: "cat-ico-all" },
+    Accessories: { label: "Accessories", ico: "cat-ico-accessories" },
+    Development: { label: "Development", ico: "cat-ico-development" },
+    Games: { label: "Games", ico: "cat-ico-games" },
+    Graphics: { label: "Graphics", ico: "cat-ico-graphics" },
+    Internet: { label: "Internet", ico: "cat-ico-internet" },
+    Multimedia: { label: "Sound & Video", ico: "cat-ico-multimedia" },
+    Office: { label: "Office", ico: "cat-ico-office" },
+    System: { label: "System Tools", ico: "cat-ico-system" },
+    Other: { label: "Utilities", ico: "cat-ico-other" },
+  };
   let drawerLoaded = false;
   let selectedCat = "All";
   let drawerView = "icons";
@@ -111,23 +127,60 @@
     drawerCats.replaceChildren();
     for (const cat of CAT_ORDER) {
       if (cat !== "All" && !present.has(cat)) continue;
+      const meta = CATEGORY_META[cat] || { label: cat, ico: "cat-ico-other" };
       const b = document.createElement("button");
       b.type = "button";
       b.className = "drawer-cat" + (cat === selectedCat ? " selected" : "");
-      b.textContent = cat === "All" ? "All Applications" : cat;
       b.dataset.cat = cat;
+      b.title = meta.label;
+      const ico = document.createElement("span");
+      ico.className = "drawer-cat-ico " + meta.ico;
+      ico.setAttribute("aria-hidden", "true");
+      const lab = document.createElement("span");
+      lab.className = "drawer-cat-label";
+      lab.textContent = meta.label;
+      b.append(ico, lab);
       b.addEventListener("click", () => {
         selectedCat = cat;
-        for (const c of drawerCats.children) c.classList.toggle("selected", c.dataset.cat === cat);
+        for (const c of drawerCats.querySelectorAll(".drawer-cat")) {
+          c.classList.toggle("selected", c.dataset.cat === cat);
+        }
         filterDrawer(drawerSearch.value);
       });
       drawerCats.appendChild(b);
     }
   }
 
+  async function loadDrawerProfile() {
+    try {
+      const p = await tb.getUserProfile();
+      drawerUserName.textContent = p.displayName || p.username || "User";
+      if (p.avatar) {
+        drawerUserAvatar.textContent = "";
+        drawerUserAvatar.style.backgroundImage = `url("${p.avatar}")`;
+      } else {
+        drawerUserAvatar.style.backgroundImage = "";
+        drawerUserAvatar.textContent = p.initial || "?";
+      }
+    } catch {
+      drawerUserName.textContent = "User";
+    }
+  }
+
+  drawerTerminal.addEventListener("click", (e) => {
+    e.stopPropagation();
+    tb.openApp("Terminal");
+    setStartOpen(false);
+  });
+  drawerPower.addEventListener("click", (e) => {
+    e.stopPropagation();
+    tb.showPowerMenu();
+  });
+
   async function loadDrawer() {
     if (drawerLoaded) return;
     drawerLoaded = true;
+    void loadDrawerProfile();
     const apps = await tb.listInstalledApps();
     renderCats(apps);
     drawerGrid.replaceChildren();

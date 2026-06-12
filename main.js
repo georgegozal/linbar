@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, Menu, shell, clipboard } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, Menu, shell, clipboard, nativeImage } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -15,6 +15,50 @@ function openTarget(target) {
   return new Promise((resolve, reject) => {
     execFile("/usr/bin/open", [target], (err) => (err ? reject(err) : resolve()));
   });
+}
+
+function runOsascript(source) {
+  return new Promise((resolve, reject) => {
+    execFile("/usr/bin/osascript", ["-e", source], (err) => (err ? reject(err) : resolve()));
+  });
+}
+
+async function getUserProfile() {
+  const username = os.userInfo().username;
+  let displayName = username;
+  try {
+    displayName = await new Promise((resolve, reject) => {
+      execFile("id", ["-F"], (err, stdout) => (err ? reject(err) : resolve(String(stdout).trim())));
+    });
+  } catch {
+    /* keep username */
+  }
+
+  let avatar = null;
+  try {
+    const dsclOut = await new Promise((resolve, reject) => {
+      execFile("dscl", [".", "-read", `/Users/${username}`, "Picture"], (err, stdout) =>
+        err ? reject(err) : resolve(String(stdout)),
+      );
+    });
+    const picPath = dsclOut
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.startsWith("/"));
+    if (picPath && fs.existsSync(picPath)) {
+      const img = nativeImage.createFromPath(picPath);
+      if (!img.isEmpty()) avatar = img.resize({ width: 64, height: 64 }).toDataURL();
+    }
+  } catch {
+    /* no custom picture */
+  }
+
+  return {
+    username,
+    displayName: displayName || username,
+    avatar,
+    initial: String(displayName || username).charAt(0).toUpperCase(),
+  };
 }
 const {
   listTaskSnapshot,
@@ -820,6 +864,40 @@ ipcMain.handle("drawer:setView", (_e, view) => {
   const drawerView = view === "list" ? "list" : "icons";
   saveConfig({ drawerView });
   return { ok: true, drawerView };
+});
+
+ipcMain.handle("user:profile", () => getUserProfile());
+
+ipcMain.on("drawer:powerMenu", (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const menu = Menu.buildFromTemplate([
+    {
+      label: "Sleep",
+      click: () => {
+        execFile("pmset", ["sleepnow"], () => {});
+      },
+    },
+    { type: "separator" },
+    {
+      label: "Log Out…",
+      click: () => {
+        void runOsascript('tell application "System Events" to log out');
+      },
+    },
+    {
+      label: "Restart…",
+      click: () => {
+        void runOsascript('tell application "System Events" to restart');
+      },
+    },
+    {
+      label: "Shut Down…",
+      click: () => {
+        void runOsascript('tell application "System Events" to shut down');
+      },
+    },
+  ]);
+  menu.popup({ window: win });
 });
 
 ipcMain.on("pins:contextmenu", (_e, appName) => {

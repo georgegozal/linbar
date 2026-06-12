@@ -30,7 +30,23 @@
       </div>
     </div>
     <div class="drawer-body">
-      <div class="drawer-cats" id="drawerCats" role="tablist"></div>
+      <aside class="drawer-sidebar">
+        <div class="drawer-user" id="drawerUser">
+          <span class="drawer-user-avatar" id="drawerUserAvatar" aria-hidden="true">?</span>
+          <span class="drawer-user-name" id="drawerUserName">User</span>
+        </div>
+        <div class="drawer-cats" id="drawerCats" role="tablist"></div>
+        <div class="drawer-actions">
+          <button type="button" class="drawer-action" id="drawerTerminal" title="Open Terminal">
+            <span class="drawer-action-ico cat-ico-terminal" aria-hidden="true"></span>
+            <span>Terminal</span>
+          </button>
+          <button type="button" class="drawer-action" id="drawerPower" title="Power options">
+            <span class="drawer-action-ico cat-ico-power" aria-hidden="true"></span>
+            <span>Power</span>
+          </button>
+        </div>
+      </aside>
       <div class="drawer-grid drawer-view-icons" id="drawerGrid" role="menu"></div>
     </div>
   </div>
