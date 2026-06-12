@@ -325,6 +325,18 @@ body {
   color: #2e7d32;
 }
 
+/* Lightning bolt over the battery while connected to power */
+.batt-bolt {
+  display: none;
+}
+
+.tray-btn--batt.charging .batt-bolt {
+  display: block;
+  fill: #f5c518;
+  stroke: #8a6d00;
+  stroke-width: 1;
+}
+
 .tray-btn--batt.low .batt-pct,
 .tray-btn--batt.low svg {
   color: #c0392b;

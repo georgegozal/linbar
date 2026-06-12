@@ -551,6 +551,6 @@
   }
 
   syncBattery();
-  setInterval(syncBattery, 60_000);
+  setInterval(syncBattery, 15_000);
   trayBatt.addEventListener("click", () => tb.openBatterySettings());
 })();
