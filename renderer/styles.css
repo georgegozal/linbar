@@ -512,10 +512,10 @@ body {
 /* Whisker-menu-style app drawer */
 .app-drawer {
   width: 580px;
-  height: 520px;
+  height: 540px;
   display: flex;
   flex-direction: column;
-  padding: 8px 12px 12px;
+  padding: 4px 12px 12px;
   border-radius: 6px 6px 0 0;
   background: linear-gradient(180deg, #f7f7f7 0%, #ededed 100%);
 }
@@ -526,7 +526,7 @@ body {
 
 #drawerSearch {
   flex: 1 1 auto;
-  height: 24px;
+  height: 28px;
   padding: 0 10px;
   border: 1px solid #b5b5b5;
   border-radius: 4px;
@@ -542,8 +542,16 @@ body {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 2px;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.drawer-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
 }
 
 .drawer-view-toggle {
@@ -557,7 +565,7 @@ body {
 
 .drawer-view-btn {
   width: 30px;
-  height: 24px;
+  height: 28px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -569,8 +577,8 @@ body {
 }
 
 .drawer-view-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .drawer-view-btn + .drawer-view-btn {
