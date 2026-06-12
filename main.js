@@ -1,10 +1,24 @@
-const { app, BrowserWindow, ipcMain, screen, Menu, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, Menu, shell, dialog } = require("electron");
 const path = require("node:path");
+const fs = require("node:fs");
+const { execFile } = require("node:child_process");
+
+/** Launch or focus an app via /usr/bin/open — needs no Automation permission. */
+function launchApp(appName) {
+  return new Promise((resolve, reject) => {
+    execFile("/usr/bin/open", ["-a", appName], (err) => (err ? reject(err) : resolve()));
+  });
+}
+
+function openTarget(target) {
+  return new Promise((resolve, reject) => {
+    execFile("/usr/bin/open", [target], (err) => (err ? reject(err) : resolve()));
+  });
+}
 const {
   listTaskSnapshot,
   getFrontmostWindowTask,
   activateWindowTask,
-  openApp,
   getAppBundlePath,
   minimizeWindowTask,
   closeWindowTask,
@@ -375,9 +389,10 @@ ipcMain.handle("tasks:activate", async (_e, rawTask) => {
 ipcMain.handle("app:open", async (_e, appName) => {
   if (!appName || typeof appName !== "string") return { ok: false };
   try {
-    await openApp(appName);
+    await launchApp(appName);
     return { ok: true };
   } catch (err) {
+    console.warn("[LinBar] app:open failed:", appName, err.message);
     return { ok: false, error: String(err && err.message ? err.message : err) };
   }
 });
@@ -445,25 +460,45 @@ ipcMain.handle("audio:getVolume", async () => {
   }
 });
 
-ipcMain.handle("clipboard:preview", async () => {
+ipcMain.handle("clipboard:preview", async (_e) => {
+  let preview = "";
   try {
     const text = await getClipboardText();
     const trimmed = text.replace(/\s+/g, " ").trim();
-    const preview = trimmed.length > 600 ? trimmed.slice(0, 600) + "…" : trimmed;
-    return { ok: true, preview: preview || "(empty)", rawLength: text.length };
+    preview = trimmed.length > 600 ? trimmed.slice(0, 600) + "…" : trimmed;
   } catch (err) {
-    return { ok: false, error: String(err && err.message ? err.message : err) };
+    preview = "Clipboard unavailable: " + String(err && err.message ? err.message : err);
   }
+  // window.alert cannot render inside the 48px panel window; use a native dialog.
+  const win = BrowserWindow.fromWebContents(_e.sender);
+  dialog.showMessageBox(win, {
+    type: "none",
+    title: "Clipboard",
+    message: "Clipboard contents",
+    detail: preview || "(empty)",
+    buttons: ["OK"],
+  });
+  return { ok: true };
 });
 
 ipcMain.handle("sys:aboutMac", async () => {
-  await shell.openPath("/System/Library/CoreServices/Applications/About This Mac.app");
-  return { ok: true };
+  try {
+    await openTarget("/System/Library/CoreServices/Applications/About This Mac.app");
+    return { ok: true };
+  } catch (err) {
+    console.warn("[LinBar] aboutMac failed:", err.message);
+    return { ok: false, error: err.message };
+  }
 });
 
 ipcMain.handle("sys:notificationSettings", async () => {
-  await shell.openExternal("x-apple.systempreferences:com.apple.Notifications-Settings.extension");
-  return { ok: true };
+  try {
+    await openTarget("x-apple.systempreferences:com.apple.Notifications-Settings.extension");
+    return { ok: true };
+  } catch (err) {
+    console.warn("[LinBar] notificationSettings failed:", err.message);
+    return { ok: false, error: err.message };
+  }
 });
 
 ipcMain.handle("sys:settings", async () => {
@@ -473,34 +508,54 @@ ipcMain.handle("sys:settings", async () => {
 
 const iconCache = new Map();
 
+function existingAppPath(appName) {
+  const candidates = [
+    `/Applications/${appName}.app`,
+    `/System/Applications/${appName}.app`,
+    `/System/Applications/Utilities/${appName}.app`,
+    `/System/Library/CoreServices/${appName}.app`,
+    `/System/Cryptexes/App/System/Applications/${appName}.app`,
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || "";
+}
+
+function mdfindAppPath(appName) {
+  const n = appName.replace(/'/g, "");
+  const query = `kMDItemContentType == 'com.apple.application-bundle' && (kMDItemFSName == '${n}.app' || kMDItemDisplayName == '${n}')`;
+  return new Promise((resolve) => {
+    execFile("/usr/bin/mdfind", [query], (err, stdout) => {
+      if (err) return resolve("");
+      const hit = String(stdout)
+        .split("\n")
+        .map((s) => s.trim())
+        .find((s) => s.endsWith(".app"));
+      resolve(hit || "");
+    });
+  });
+}
+
 async function findAppIcon(appName) {
-  if (iconCache.has(appName)) return iconCache.get(appName);
-  iconCache.set(appName, null);
-  let dataUrl = null;
-  try {
-    const known = bundlePathByApp.get(appName);
-    const bundlePath = known || (nativeMode ? "" : await getAppBundlePath(appName));
-    if (bundlePath && bundlePath.trim()) {
-      const img = await app.getFileIcon(bundlePath.trim(), { size: "normal" });
-      dataUrl = img.toDataURL();
-    }
-  } catch {}
-  if (!dataUrl) {
-    const candidates = [
-      `/Applications/${appName}.app`,
-      `/System/Applications/${appName}.app`,
-      `/System/Applications/Utilities/${appName}.app`,
-    ];
-    for (const p of candidates) {
-      try {
-        const img = await app.getFileIcon(p, { size: "normal" });
-        dataUrl = img.toDataURL();
-        break;
-      } catch {}
-    }
+  const cachedUrl = iconCache.get(appName);
+  if (cachedUrl) return cachedUrl;
+
+  let bundlePath = bundlePathByApp.get(appName) || existingAppPath(appName);
+  if (!bundlePath) bundlePath = await mdfindAppPath(appName);
+  if (!bundlePath && !nativeMode) {
+    try {
+      bundlePath = (await getAppBundlePath(appName)).trim();
+    } catch {}
   }
-  iconCache.set(appName, dataUrl);
-  return dataUrl;
+  // getFileIcon silently returns a generic document icon for bad paths, so
+  // never call it without confirming the bundle actually exists.
+  if (!bundlePath || !fs.existsSync(bundlePath)) return null;
+  try {
+    const img = await app.getFileIcon(bundlePath, { size: "normal" });
+    const dataUrl = img.toDataURL();
+    iconCache.set(appName, dataUrl);
+    return dataUrl;
+  } catch {
+    return null;
+  }
 }
 
 ipcMain.handle("icon:get", async (_e, appName) => {
@@ -584,7 +639,7 @@ ipcMain.on("pins:contextmenu", (_e, appName) => {
   if (!appName || typeof appName !== "string") return;
   const win = BrowserWindow.fromWebContents(_e.sender);
   const menu = Menu.buildFromTemplate([
-    { label: "Open " + appName, click: () => void openApp(appName).catch(() => {}) },
+    { label: "Open " + appName, click: () => void launchApp(appName).catch(() => {}) },
     { type: "separator" },
     { label: "Unpin from Taskbar", click: () => togglePin(appName) },
   ]);

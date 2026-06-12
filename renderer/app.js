@@ -209,12 +209,15 @@
     }
     iconCache.set(processName, null); // mark in-flight
     tb.getAppIcon(processName).then((url) => {
-      iconCache.set(processName, url || null);
-      if (!url) return;
+      if (!url) {
+        iconCache.delete(processName); // retry on a later snapshot
+        return;
+      }
+      iconCache.set(processName, url);
       for (const [key, btn] of taskButtonByKey.entries()) {
         if (key.split("::")[0] === processName) applyIconToButton(btn, url);
       }
-    }).catch(() => {});
+    }).catch(() => iconCache.delete(processName));
   }
 
   function createTaskButton() {
@@ -296,8 +299,10 @@
     if (snap === lastSnapshot) return;
     lastSnapshot = snap;
 
+    // Reconcile in place: re-inserting an unchanged node restarts its CSS
+    // animation and reads as a visible "refresh", so only move what moved.
     const nextKeys = new Set();
-    const frag = document.createDocumentFragment();
+    let cursor = 0;
     for (const t of tasks) {
       const key = taskKey(t);
       nextKeys.add(key);
@@ -305,15 +310,16 @@
       const b = taskButtonByKey.get(key) || createTaskButton();
       patchTaskButton(b, t, active);
       taskButtonByKey.set(key, b);
-      frag.appendChild(b);
+      const atCursor = taskList.children[cursor];
+      if (atCursor !== b) taskList.insertBefore(b, atCursor || null);
+      cursor++;
     }
 
     for (const [key, button] of taskButtonByKey.entries()) {
       if (nextKeys.has(key)) continue;
       taskButtonByKey.delete(key);
-      if (button.parentNode === taskList) taskList.removeChild(button);
+      button.remove();
     }
-    taskList.replaceChildren(frag);
   }
 
   function queueTaskPayload(data) {
@@ -349,10 +355,8 @@
   document.getElementById("trayAbout").addEventListener("click", () => tb.openAboutMac());
   document.getElementById("trayNotif").addEventListener("click", () => tb.openNotificationSettings());
 
-  document.getElementById("trayClip").addEventListener("click", async () => {
-    const r = await tb.getClipboardPreview();
-    if (r.ok) window.alert(r.preview);
-    else window.alert("Clipboard: " + (r.error || "unavailable"));
+  document.getElementById("trayClip").addEventListener("click", () => {
+    tb.getClipboardPreview();
   });
 
   function applyVolumeUi(v) {
