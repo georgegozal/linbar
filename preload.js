@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld("taskbar", {
   openSpecialPath: (key) => ipcRenderer.invoke("path:special", key),
   toggleMute: () => ipcRenderer.invoke("audio:toggleMute"),
   getVolume: () => ipcRenderer.invoke("audio:getVolume"),
+  changeVolume: (delta) => ipcRenderer.invoke("audio:changeVolume", delta),
+  setPanelHeight: (h) => ipcRenderer.send("panel:setHeight", h),
   getClipboardPreview: () => ipcRenderer.invoke("clipboard:preview"),
   openAboutMac: () => ipcRenderer.invoke("sys:aboutMac"),
   openNotificationSettings: () => ipcRenderer.invoke("sys:notificationSettings"),

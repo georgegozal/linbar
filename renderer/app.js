@@ -33,9 +33,21 @@
   tickClock();
   setInterval(tickClock, 1000);
 
+  // Popups live above the 48px bar, so the window must grow while one is open.
+  const calendarPop = document.getElementById("calendarPop");
+  const PANEL_H = 48;
+  const POPUP_H = 380;
+
+  function syncPanelHeight() {
+    const open = !startMenu.hidden || !calendarPop.hidden;
+    tb.setPanelHeight(open ? POPUP_H : PANEL_H);
+  }
+
   function setStartOpen(open) {
     startMenu.hidden = !open;
+    if (open) calendarPop.hidden = true;
     startBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    syncPanelHeight();
   }
 
   startBtn.addEventListener("click", (e) => {
@@ -43,8 +55,72 @@
     setStartOpen(startMenu.hidden);
   });
 
-  document.addEventListener("click", () => setStartOpen(false));
+  document.addEventListener("click", () => {
+    setStartOpen(false);
+    setCalendarOpen(false);
+  });
   startMenu.addEventListener("click", (e) => e.stopPropagation());
+
+  // --- Calendar popup (Orage-style) ---
+  const calTitle = document.getElementById("calTitle");
+  const calGrid = document.getElementById("calGrid");
+  let calCursor = new Date();
+
+  function renderCalendar() {
+    const year = calCursor.getFullYear();
+    const month = calCursor.getMonth();
+    calTitle.textContent = calCursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    calGrid.replaceChildren();
+
+    const fmt = new Intl.DateTimeFormat(undefined, { weekday: "short" });
+    // Monday-first week, like XFCE defaults.
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(2024, 0, i + 1); // 2024-01-01 is a Monday
+      const h = document.createElement("span");
+      h.className = "cal-dow";
+      h.textContent = fmt.format(d).slice(0, 2);
+      calGrid.appendChild(h);
+    }
+
+    const first = new Date(year, month, 1);
+    const lead = (first.getDay() + 6) % 7; // days from Monday
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date();
+    for (let i = 0; i < lead; i++) calGrid.appendChild(document.createElement("span"));
+    for (let day = 1; day <= daysInMonth; day++) {
+      const cell = document.createElement("span");
+      cell.className = "cal-day";
+      cell.textContent = String(day);
+      if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+        cell.classList.add("today");
+      }
+      calGrid.appendChild(cell);
+    }
+  }
+
+  function setCalendarOpen(open) {
+    calendarPop.hidden = !open;
+    if (open) {
+      startMenu.hidden = true;
+      calCursor = new Date();
+      renderCalendar();
+    }
+    syncPanelHeight();
+  }
+
+  document.getElementById("clock").addEventListener("click", (e) => {
+    e.stopPropagation();
+    setCalendarOpen(calendarPop.hidden);
+  });
+  calendarPop.addEventListener("click", (e) => e.stopPropagation());
+  document.getElementById("calPrev").addEventListener("click", () => {
+    calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() - 1, 1);
+    renderCalendar();
+  });
+  document.getElementById("calNext").addEventListener("click", () => {
+    calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + 1, 1);
+    renderCalendar();
+  });
 
   startMenu.querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -279,10 +355,13 @@
     else window.alert("Clipboard: " + (r.error || "unavailable"));
   });
 
-  async function syncVolumeUi() {
-    const v = await tb.getVolume();
+  function applyVolumeUi(v) {
     trayVol.classList.toggle("muted", !!v.muted);
-    trayVol.title = v.muted ? "Unmute" : "Mute";
+    trayVol.title = (v.muted ? "Muted" : "Volume " + Math.round(v.level) + "%") + " — click to toggle, scroll to adjust";
+  }
+
+  async function syncVolumeUi() {
+    applyVolumeUi(await tb.getVolume());
   }
 
   syncVolumeUi();
@@ -290,4 +369,16 @@
     await tb.toggleMute();
     syncVolumeUi();
   });
+
+  let volWheelBusy = false;
+  trayVol.addEventListener("wheel", async (e) => {
+    e.preventDefault();
+    if (volWheelBusy) return;
+    volWheelBusy = true;
+    try {
+      applyVolumeUi(await tb.changeVolume(e.deltaY < 0 ? 6 : -6));
+    } finally {
+      volWheelBusy = false;
+    }
+  }, { passive: false });
 })();

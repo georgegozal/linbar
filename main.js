@@ -10,6 +10,7 @@ const {
   closeWindowTask,
   toggleOutputMuted,
   getVolumeState,
+  setOutputVolume,
   getClipboardText,
 } = require("./lib/applescript");
 const { getFrontmostAppName } = require("./lib/lsappinfo");
@@ -401,6 +402,30 @@ ipcMain.handle("path:special", async (_e, key) => {
   const err = await shell.openPath(app.getPath(name));
   if (err) return { ok: false, error: err };
   return { ok: true };
+});
+
+/**
+ * Popups (start menu, calendar) need room above the 48px bar: grow the window
+ * upward while keeping the panel glued to the bottom edge, shrink when closed.
+ */
+ipcMain.on("panel:setHeight", (_e, rawHeight) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const height = Math.max(PANEL_HEIGHT, Math.min(600, Math.floor(Number(rawHeight) || PANEL_HEIGHT)));
+  const display = screen.getDisplayNearestPoint(mainWindow.getBounds());
+  const b = display.bounds;
+  mainWindow.setBounds({ x: b.x, y: b.y + b.height - height, width: b.width, height });
+});
+
+ipcMain.handle("audio:changeVolume", async (_e, rawDelta) => {
+  const delta = Math.max(-25, Math.min(25, Number(rawDelta) || 0));
+  try {
+    const s = await getVolumeState();
+    const level = Math.max(0, Math.min(100, Math.round(s.level + delta)));
+    await setOutputVolume(level);
+    return { muted: s.muted, level };
+  } catch (err) {
+    return { muted: false, level: 0, error: String(err && err.message ? err.message : err) };
+  }
 });
 
 ipcMain.handle("audio:toggleMute", async () => {
