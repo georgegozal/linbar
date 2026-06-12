@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, screen, Menu, shell, dialog } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
+const os = require("node:os");
 const { execFile } = require("node:child_process");
 
 /** Launch or focus an app via /usr/bin/open — needs no Automation permission. */
@@ -563,6 +564,84 @@ async function findAppIcon(appName) {
 ipcMain.handle("icon:get", async (_e, appName) => {
   if (!appName || typeof appName !== "string") return null;
   return findAppIcon(appName);
+});
+
+// ---------------------------------------------------------------------------
+// App drawer: enumerate installed applications.
+// ---------------------------------------------------------------------------
+
+const APP_SCAN_DIRS = [
+  "/Applications",
+  "/System/Applications",
+  "/System/Applications/Utilities",
+  path.join(os.homedir(), "Applications"),
+];
+
+let installedAppsCache = { apps: [], at: 0 };
+
+function scanAppsDir(dir, depth, out) {
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    if (e.name.startsWith(".")) continue;
+    const full = path.join(dir, e.name);
+    if (e.name.endsWith(".app")) {
+      const name = e.name.slice(0, -4);
+      if (!out.has(name)) out.set(name, { name, path: full });
+    } else if (e.isDirectory() && depth > 0) {
+      scanAppsDir(full, depth - 1, out);
+    }
+  }
+}
+
+function listInstalledApps() {
+  const now = Date.now();
+  if (now - installedAppsCache.at < 60_000) return installedAppsCache.apps;
+  const out = new Map();
+  for (const dir of APP_SCAN_DIRS) scanAppsDir(dir, 1, out);
+  const apps = [...out.values()].sort((a, b) => a.name.localeCompare(b.name));
+  installedAppsCache = { apps, at: now };
+  return apps;
+}
+
+function isValidAppPath(p) {
+  return (
+    typeof p === "string" &&
+    p.endsWith(".app") &&
+    APP_SCAN_DIRS.some((dir) => p.startsWith(dir + path.sep)) &&
+    fs.existsSync(p)
+  );
+}
+
+ipcMain.handle("apps:list", () => listInstalledApps());
+
+const appPathIconCache = new Map();
+
+ipcMain.handle("apps:icon", async (_e, appPath) => {
+  if (!isValidAppPath(appPath)) return null;
+  if (appPathIconCache.has(appPath)) return appPathIconCache.get(appPath);
+  try {
+    const img = await app.getFileIcon(appPath, { size: "normal" });
+    const dataUrl = img.toDataURL();
+    appPathIconCache.set(appPath, dataUrl);
+    return dataUrl;
+  } catch {
+    return null;
+  }
+});
+
+ipcMain.handle("apps:openPath", async (_e, appPath) => {
+  if (!isValidAppPath(appPath)) return { ok: false };
+  try {
+    await openTarget(appPath);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 });
 
 function validateTask(raw) {

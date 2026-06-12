@@ -36,16 +36,90 @@
   // Popups live above the 48px bar, so the window must grow while one is open.
   const calendarPop = document.getElementById("calendarPop");
   const PANEL_H = 48;
-  const POPUP_H = 380;
+  const DRAWER_H = 560;
+  const CALENDAR_H = 380;
 
   function syncPanelHeight() {
-    const open = !startMenu.hidden || !calendarPop.hidden;
-    tb.setPanelHeight(open ? POPUP_H : PANEL_H);
+    let h = PANEL_H;
+    if (!startMenu.hidden) h = DRAWER_H;
+    else if (!calendarPop.hidden) h = CALENDAR_H;
+    tb.setPanelHeight(h);
   }
+
+  // --- App drawer (Whisker-menu style) ---
+  const drawerSearch = document.getElementById("drawerSearch");
+  const drawerGrid = document.getElementById("drawerGrid");
+  let drawerLoaded = false;
+
+  const drawerIconObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const item = entry.target;
+      drawerIconObserver.unobserve(item);
+      const appPath = item.dataset.path;
+      tb.getAppIconByPath(appPath).then((url) => {
+        if (!url) return;
+        const ico = item.querySelector(".drawer-ico");
+        ico.textContent = "";
+        ico.style.backgroundImage = `url("${url}")`;
+      }).catch(() => {});
+    }
+  }, { root: null, rootMargin: "120px" });
+
+  async function loadDrawer() {
+    if (drawerLoaded) return;
+    drawerLoaded = true;
+    const apps = await tb.listInstalledApps();
+    drawerGrid.replaceChildren();
+    for (const a of apps) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "drawer-item";
+      item.dataset.path = a.path;
+      item.dataset.name = a.name.toLowerCase();
+      item.title = a.name;
+      const ico = document.createElement("span");
+      ico.className = "drawer-ico";
+      ico.textContent = a.name.slice(0, 1);
+      const lab = document.createElement("span");
+      lab.className = "drawer-label";
+      lab.textContent = a.name;
+      item.append(ico, lab);
+      item.addEventListener("click", () => {
+        tb.openAppPath(a.path);
+        setStartOpen(false);
+      });
+      drawerGrid.appendChild(item);
+      drawerIconObserver.observe(item);
+    }
+  }
+
+  function filterDrawer(query) {
+    const q = query.trim().toLowerCase();
+    for (const item of drawerGrid.children) {
+      item.hidden = q !== "" && !item.dataset.name.includes(q);
+    }
+  }
+
+  drawerSearch.addEventListener("input", () => filterDrawer(drawerSearch.value));
+  drawerSearch.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const first = [...drawerGrid.children].find((c) => !c.hidden);
+      if (first) first.click();
+    } else if (e.key === "Escape") {
+      setStartOpen(false);
+    }
+  });
 
   function setStartOpen(open) {
     startMenu.hidden = !open;
-    if (open) calendarPop.hidden = true;
+    if (open) {
+      calendarPop.hidden = true;
+      void loadDrawer();
+      drawerSearch.value = "";
+      filterDrawer("");
+      setTimeout(() => drawerSearch.focus(), 0);
+    }
     startBtn.setAttribute("aria-expanded", open ? "true" : "false");
     syncPanelHeight();
   }

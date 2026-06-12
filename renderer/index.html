@@ -7,12 +7,14 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="start-menu" id="startMenu" role="menu" aria-label="Start menu" hidden>
-    <button type="button" role="menuitem" data-action="app" data-arg="Terminal">Terminal</button>
-    <button type="button" role="menuitem" data-action="app" data-arg="Safari">Safari</button>
-    <button type="button" role="menuitem" data-action="app" data-arg="Finder">Finder</button>
-    <button type="button" role="menuitem" data-action="special" data-arg="documents">Documents</button>
-    <button type="button" role="menuitem" data-action="settings">System Settings</button>
+  <div class="start-menu app-drawer" id="startMenu" aria-label="Applications" hidden>
+    <input type="search" id="drawerSearch" placeholder="Search applications…" autocomplete="off" spellcheck="false" />
+    <div class="drawer-grid" id="drawerGrid" role="menu"></div>
+    <div class="drawer-footer">
+      <button type="button" data-action="special" data-arg="documents">Documents</button>
+      <button type="button" data-action="special" data-arg="downloads">Downloads</button>
+      <button type="button" data-action="settings">System Settings</button>
+    </div>
   </div>
 
   <div class="calendar-pop" id="calendarPop" hidden>
