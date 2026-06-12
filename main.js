@@ -51,6 +51,7 @@ let lastFrontAppName = "";
 let nativeTracker = null;
 let nativeMode = false;
 let fallbackStarted = false;
+let quitting = false;
 /** Stable XFCE-style button order: each window keeps its slot for its lifetime. */
 const taskOrderByKey = new Map();
 let taskOrderSeq = 0;
@@ -235,6 +236,7 @@ function startBackend() {
         }
       },
       onExit: () => {
+        if (quitting) return;
         if (nativeMode) console.warn("[LinBar] native helper exited; using AppleScript fallback");
         nativeTracker = null;
         nativeMode = false;
@@ -705,7 +707,12 @@ app.whenReady().then(() => {
   });
 });
 
+app.on("before-quit", () => {
+  quitting = true;
+});
+
 app.on("will-quit", () => {
+  quitting = true;
   if (nativeTracker) nativeTracker.kill();
 });
 
