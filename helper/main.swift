@@ -47,6 +47,7 @@ final class TrackedApp {
     let pid: pid_t
     let name: String
     let bundleID: String
+    let bundlePath: String
     let axApp: AXUIElement
     var observer: AXObserver?
     var observedWindows: Set<CGWindowID> = []
@@ -55,6 +56,7 @@ final class TrackedApp {
         self.pid = app.processIdentifier
         self.name = app.localizedName ?? app.bundleIdentifier ?? "pid \(app.processIdentifier)"
         self.bundleID = app.bundleIdentifier ?? ""
+        self.bundlePath = app.bundleURL?.path ?? ""
         self.axApp = AXUIElementCreateApplication(app.processIdentifier)
     }
 
@@ -189,6 +191,7 @@ final class Manager {
                     "pid": Int(pid),
                     "app": tracked.name,
                     "bundle": tracked.bundleID,
+                    "bundlePath": tracked.bundlePath,
                     "title": title,
                     "minimized": minimized,
                     "focused": focused,

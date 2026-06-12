@@ -13,9 +13,11 @@ const {
   getClipboardText,
 } = require("./lib/applescript");
 const { getFrontmostAppName } = require("./lib/lsappinfo");
+const { startNativeTracker } = require("./lib/helper");
 
 const PANEL_HEIGHT = 48;
 const DEBUG_TASKS = process.env.LINBAR_DEBUG_TASKS === "1";
+const FORCE_APPLESCRIPT = process.env.LINBAR_FORCE_APPLESCRIPT === "1";
 const TASK_REFRESH_ACTIVE_MS = 1600;
 const TASK_REFRESH_IDLE_MS = 4000;
 const TASK_ACTIVE_WINDOW_MS = 8000;
@@ -29,6 +31,13 @@ let lastTaskPayload = null;
 let lastTaskSnapshot = "";
 let frontPollInFlight = false;
 let lastFrontAppName = "";
+
+let nativeTracker = null;
+let nativeMode = false;
+let fallbackStarted = false;
+/** Stable XFCE-style button order: each window keeps its slot for its lifetime. */
+const taskOrderByKey = new Map();
+let taskOrderSeq = 0;
 
 function nowMs() {
   return Number(process.hrtime.bigint()) / 1e6;
@@ -138,6 +147,100 @@ function ownProcessNamesToExclude() {
   return [...new Set(names.filter(Boolean))];
 }
 
+// ---------------------------------------------------------------------------
+// Native (Swift helper) backend — event-driven, preferred.
+// ---------------------------------------------------------------------------
+
+/** appName -> bundle path, learned from native snapshots; lets icon lookup skip AppleScript. */
+const bundlePathByApp = new Map();
+
+function handleNativeSnapshot(snap) {
+  const exclude = new Set(ownProcessNamesToExclude().map((n) => n.toLowerCase()));
+  const tasks = [];
+  let front = null;
+
+  for (const w of snap.windows || []) {
+    if (w.pid === process.pid) continue;
+    if (exclude.has(String(w.app).toLowerCase())) continue;
+    if (w.bundlePath) bundlePathByApp.set(w.app, w.bundlePath);
+    const key = `${w.app}::native::${w.id}`;
+    if (!taskOrderByKey.has(key)) taskOrderByKey.set(key, taskOrderSeq++);
+    const task = {
+      process: w.app,
+      kind: "native",
+      ref: w.id,
+      pid: w.pid,
+      title: w.title || w.app,
+      minimized: Boolean(w.minimized),
+      key,
+    };
+    tasks.push(task);
+    if (w.focused) front = task;
+  }
+
+  tasks.sort((a, b) => taskOrderByKey.get(a.key) - taskOrderByKey.get(b.key));
+  const liveKeys = new Set(tasks.map((t) => t.key));
+  for (const key of taskOrderByKey.keys()) {
+    if (!liveKeys.has(key)) taskOrderByKey.delete(key);
+  }
+
+  const payload = {
+    tasks,
+    front,
+    error: null,
+    meta: { reason: snap.reason, at: Date.now(), native: true },
+  };
+  const snapStr = JSON.stringify({ tasks, front });
+  const changed = snapStr !== lastTaskSnapshot;
+  lastTaskSnapshot = snapStr;
+  lastTaskPayload = payload;
+  if (changed) emitTaskPayload(payload);
+  if (DEBUG_TASKS) {
+    console.log("[LinBar] native snapshot", "reason=" + snap.reason, "tasks=" + tasks.length, "changed=" + changed);
+  }
+}
+
+function startBackend() {
+  if (!FORCE_APPLESCRIPT) {
+    nativeTracker = startNativeTracker({
+      onSnapshot: handleNativeSnapshot,
+      onStatus: (s) => {
+        if (s.trusted) {
+          nativeMode = true;
+          console.log("[LinBar] native helper active (event-driven backend)");
+        } else {
+          console.warn(
+            "[LinBar] Accessibility permission missing — grant it in System Settings → Privacy & Security → Accessibility, then restart LinBar. Using AppleScript fallback.",
+          );
+          const t = nativeTracker;
+          nativeTracker = null;
+          if (t) t.kill();
+          startAppleScriptScheduler();
+        }
+      },
+      onExit: () => {
+        if (nativeMode) console.warn("[LinBar] native helper exited; using AppleScript fallback");
+        nativeTracker = null;
+        nativeMode = false;
+        startAppleScriptScheduler();
+      },
+    });
+  }
+  if (!nativeTracker) startAppleScriptScheduler();
+}
+
+// ---------------------------------------------------------------------------
+// AppleScript backend — fallback when the helper is unavailable.
+// ---------------------------------------------------------------------------
+
+function startAppleScriptScheduler() {
+  if (fallbackStarted) return;
+  fallbackStarted = true;
+  markTaskInteraction();
+  scheduleTaskRefresh(0);
+  setInterval(() => void pollFrontmost(), FRONT_POLL_MS);
+}
+
 function panelBoundsForDisplay(display) {
   const { x, y, width, height } = display.bounds;
   return {
@@ -212,6 +315,10 @@ function setMacMenu() {
 ipcMain.handle("tasks:list", async () => {
   markTaskInteraction();
   if (!lastTaskPayload) {
+    if (nativeTracker) {
+      nativeTracker.requestSnapshot();
+      return { tasks: [], front: null, error: null };
+    }
     lastTaskPayload = await buildTaskPayload("tasks:list");
     lastTaskSnapshot = JSON.stringify({
       tasks: lastTaskPayload.tasks,
@@ -228,38 +335,34 @@ ipcMain.handle("tasks:list", async () => {
 
 ipcMain.on("tasks:poke", () => {
   markTaskInteraction();
-  scheduleTaskRefresh(0);
+  if (nativeTracker) nativeTracker.requestSnapshot();
+  else scheduleTaskRefresh(0);
 });
 
-ipcMain.handle("tasks:activate", async (_e, task) => {
-  if (!task || typeof task !== "object") return { ok: false };
-  const process = task.process;
-  const kind = task.kind;
-  const ref = Number(task.ref);
-  if (typeof process !== "string" || !process) return { ok: false };
-  if (kind !== "system" && kind !== "terminal" && kind !== "browser") return { ok: false };
-  if (!Number.isFinite(ref) || ref < 1) return { ok: false };
+ipcMain.handle("tasks:activate", async (_e, rawTask) => {
+  const task = validateTask(rawTask);
+  if (!task) return { ok: false };
   const startedAt = nowMs();
   try {
-    await activateWindowTask({
-      process,
-      kind,
-      ref,
-      title: typeof task.title === "string" ? task.title : "",
-    });
-    markTaskInteraction();
-    scheduleTaskRefresh(0);
+    if (task.kind === "native") {
+      if (!nativeTracker) return { ok: false, error: "native backend unavailable" };
+      nativeTracker.raise(task.pid, task.ref);
+    } else {
+      await activateWindowTask(task);
+      markTaskInteraction();
+      scheduleTaskRefresh(0);
+    }
     if (DEBUG_TASKS) {
-      console.log("[LinBar] tasks:activate", process, kind, ref, "ms=" + (nowMs() - startedAt).toFixed(1));
+      console.log("[LinBar] tasks:activate", task.process, task.kind, task.ref, "ms=" + (nowMs() - startedAt).toFixed(1));
     }
     return { ok: true };
   } catch (err) {
     if (DEBUG_TASKS) {
       console.warn(
         "[LinBar] tasks:activate failed",
-        process,
-        kind,
-        ref,
+        task.process,
+        task.kind,
+        task.ref,
         "ms=" + (nowMs() - startedAt).toFixed(1),
       );
     }
@@ -349,7 +452,8 @@ async function findAppIcon(appName) {
   iconCache.set(appName, null);
   let dataUrl = null;
   try {
-    const bundlePath = await getAppBundlePath(appName);
+    const known = bundlePathByApp.get(appName);
+    const bundlePath = known || (nativeMode ? "" : await getAppBundlePath(appName));
     if (bundlePath && bundlePath.trim()) {
       const img = await app.getFileIcon(bundlePath.trim(), { size: "normal" });
       dataUrl = img.toDataURL();
@@ -383,17 +487,28 @@ function validateTask(raw) {
   const kind = raw.kind;
   const process = String(raw.process || "");
   const ref = Number(raw.ref);
-  if (!process || !["system", "terminal", "browser"].includes(kind)) return null;
+  if (!process || !["system", "terminal", "browser", "native"].includes(kind)) return null;
   if (!Number.isFinite(ref) || ref < 1) return null;
-  return { process, kind, ref, title: String(raw.title || "") };
+  const task = { process, kind, ref, title: String(raw.title || "") };
+  if (kind === "native") {
+    const pid = Number(raw.pid);
+    if (!Number.isFinite(pid) || pid < 1) return null;
+    task.pid = pid;
+  }
+  return task;
 }
 
 ipcMain.handle("window:minimize", async (_e, rawTask) => {
   const task = validateTask(rawTask);
   if (!task) return { ok: false };
   try {
-    await minimizeWindowTask(task);
-    scheduleTaskRefresh(0);
+    if (task.kind === "native") {
+      if (!nativeTracker) return { ok: false, error: "native backend unavailable" };
+      nativeTracker.minimize(task.pid, task.ref);
+    } else {
+      await minimizeWindowTask(task);
+      scheduleTaskRefresh(0);
+    }
     return { ok: true };
   } catch (err) {
     return { ok: false, error: String(err && err.message ? err.message : err) };
@@ -404,41 +519,46 @@ ipcMain.handle("window:close", async (_e, rawTask) => {
   const task = validateTask(rawTask);
   if (!task) return { ok: false };
   try {
-    await closeWindowTask(task);
-    scheduleTaskRefresh(0);
+    if (task.kind === "native") {
+      if (!nativeTracker) return { ok: false, error: "native backend unavailable" };
+      nativeTracker.close(task.pid, task.ref);
+    } else {
+      await closeWindowTask(task);
+      scheduleTaskRefresh(0);
+    }
     return { ok: true };
   } catch (err) {
     return { ok: false, error: String(err && err.message ? err.message : err) };
   }
 });
 
+async function performTaskAction(task, action) {
+  try {
+    if (task.kind === "native") {
+      if (!nativeTracker) return;
+      if (action === "activate") nativeTracker.raise(task.pid, task.ref);
+      else if (action === "minimize") nativeTracker.minimize(task.pid, task.ref);
+      else if (action === "close") nativeTracker.close(task.pid, task.ref);
+      return;
+    }
+    if (action === "activate") await activateWindowTask(task);
+    else if (action === "minimize") await minimizeWindowTask(task);
+    else if (action === "close") await closeWindowTask(task);
+    scheduleTaskRefresh(0);
+  } catch {
+    /* surfaced via next snapshot */
+  }
+}
+
 ipcMain.on("window:contextmenu", (_e, rawTask) => {
   const task = validateTask(rawTask);
   if (!task) return;
   const win = BrowserWindow.fromWebContents(_e.sender);
   const menu = Menu.buildFromTemplate([
-    {
-      label: "Bring to Front",
-      click: async () => {
-        try { await activateWindowTask(task); } catch {}
-        scheduleTaskRefresh(0);
-      },
-    },
+    { label: "Bring to Front", click: () => void performTaskAction(task, "activate") },
     { type: "separator" },
-    {
-      label: "Minimize",
-      click: async () => {
-        try { await minimizeWindowTask(task); } catch {}
-        scheduleTaskRefresh(0);
-      },
-    },
-    {
-      label: "Close Window",
-      click: async () => {
-        try { await closeWindowTask(task); } catch {}
-        scheduleTaskRefresh(0);
-      },
-    },
+    { label: "Minimize", click: () => void performTaskAction(task, "minimize") },
+    { label: "Close Window", click: () => void performTaskAction(task, "close") },
   ]);
   menu.popup({ window: win });
 });
@@ -446,15 +566,20 @@ ipcMain.on("window:contextmenu", (_e, rawTask) => {
 app.whenReady().then(() => {
   setMacMenu();
   createWindow();
-  markTaskInteraction();
-  scheduleTaskRefresh(0);
-  setInterval(() => void pollFrontmost(), FRONT_POLL_MS);
+  startBackend();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    markTaskInteraction();
-    scheduleTaskRefresh(0);
+    if (nativeTracker) nativeTracker.requestSnapshot();
+    else {
+      markTaskInteraction();
+      scheduleTaskRefresh(0);
+    }
   });
+});
+
+app.on("will-quit", () => {
+  if (nativeTracker) nativeTracker.kill();
 });
 
 app.on("window-all-closed", () => {
