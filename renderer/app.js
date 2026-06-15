@@ -203,6 +203,10 @@
         tb.openAppPath(a.path);
         setStartOpen(false);
       });
+      item.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        tb.contextMenuApp(a.name);
+      });
       drawerGrid.appendChild(item);
       drawerIconObserver.observe(item);
     }
@@ -647,16 +651,22 @@
     applyVolumeUi(await tb.toggleMute());
   });
 
-  let volWheelBusy = false;
-  trayVol.addEventListener("wheel", async (e) => {
+  // Accumulate scroll ticks locally and reflect them instantly; only the (slow)
+  // setVolume call is debounced, so every notch of the wheel counts.
+  let volWheelTarget = null;
+  let volWheelTimer = null;
+  trayVol.addEventListener("wheel", (e) => {
     e.preventDefault();
-    if (volWheelBusy) return;
-    volWheelBusy = true;
-    try {
-      applyVolumeUi(await tb.changeVolume(e.deltaY < 0 ? 6 : -6));
-    } finally {
-      volWheelBusy = false;
-    }
+    const step = e.deltaY < 0 ? 5 : -5;
+    const base = volWheelTarget != null ? volWheelTarget : Number(volSlider.value) || 0;
+    volWheelTarget = Math.max(0, Math.min(100, base + step));
+    applyVolumeUi({ muted: false, level: volWheelTarget });
+    if (volWheelTimer) clearTimeout(volWheelTimer);
+    volWheelTimer = setTimeout(async () => {
+      const target = volWheelTarget;
+      volWheelTarget = null;
+      applyVolumeUi(await tb.setVolume(target));
+    }, 90);
   }, { passive: false });
 
   // --- Battery indicator (hidden on machines without one) ---

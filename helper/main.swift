@@ -155,6 +155,9 @@ final class Manager {
     }
 
     func untrack(_ pid: pid_t) {
+        if let tracked = apps[pid], let obs = tracked.observer {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
+        }
         apps.removeValue(forKey: pid)
     }
 

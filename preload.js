@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld("taskbar", {
   openAppPath: (appPath) => ipcRenderer.invoke("apps:openPath", appPath),
   getPins: () => ipcRenderer.invoke("pins:list"),
   togglePin: (appName) => ipcRenderer.invoke("pins:toggle", appName),
+  contextMenuApp: (appName) => ipcRenderer.send("apps:contextmenu", appName),
   getDrawerView: () => ipcRenderer.invoke("drawer:getView"),
   setDrawerView: (view) => ipcRenderer.invoke("drawer:setView", view),
   getUserProfile: () => ipcRenderer.invoke("user:profile"),

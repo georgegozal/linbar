@@ -4,6 +4,28 @@ Goal: make LinBar feel like the XFCE panel on Linux Mint/Xubuntu — instant win
 zero perceptible lag, rich right-click actions, pinned launchers, tray widgets, and a clock
 with calendar — while staying a native-feeling macOS utility.
 
+## 0. Changelog — 2026-06-15
+
+Maintenance pass + launcher/pinning UX:
+
+- **Packaging fix:** added `build.asarUnpack: ["helper/linbar-helper"]`. Without it the
+  native helper got packed inside `app.asar` while `lib/helper.js` looks for it under
+  `app.asar.unpacked`, so packaged builds silently fell back to AppleScript.
+- **Fallback bug:** `isLikelyHelperProcess` no longer drops every process whose name
+  contains a `.` — that was hiding real apps like `zoom.us` from the bar.
+- **App drawer:** `apps:list` cache now keys on the full set of app paths (not just the
+  count), so a same-count install+uninstall reclassifies correctly. Removed a dead
+  `c ? "Other" : "Other"` ternary in `categoryGroupFor`.
+- **Lifecycle:** the frontmost-poll `setInterval` is tracked and cleared on quit; the
+  helper removes its `AXObserver` run-loop source in `untrack`.
+- **User-controlled pins:** nothing is pre-pinned anymore. Default pins are empty, the
+  hardcoded Safari pin and Documents shortcut are gone, and any app can be pinned/unpinned
+  from the drawer via right-click (`apps:contextmenu`) or from its existing right-click
+  menus. Existing configs keep their pins — unpin unwanted ones via right-click.
+- **Volume wheel sensitivity:** scrolling the speaker icon now accumulates ticks locally
+  and updates instantly (5% per notch), debouncing only the slow `setVolume` call, instead
+  of dropping ticks while one osascript call was in flight.
+
 ## 1. Where we are today
 
 ### Architecture

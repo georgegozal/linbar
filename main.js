@@ -97,6 +97,7 @@ let lastFrontAppName = "";
 let nativeTracker = null;
 let nativeMode = false;
 let fallbackStarted = false;
+let frontPollTimer = null;
 let quitting = false;
 /** Stable XFCE-style button order: each window keeps its slot for its lifetime. */
 const taskOrderByKey = new Map();
@@ -302,7 +303,7 @@ function startAppleScriptScheduler() {
   fallbackStarted = true;
   markTaskInteraction();
   scheduleTaskRefresh(0);
-  setInterval(() => void pollFrontmost(), FRONT_POLL_MS);
+  if (!frontPollTimer) frontPollTimer = setInterval(() => void pollFrontmost(), FRONT_POLL_MS);
 }
 
 function panelBoundsForDisplay(display) {
@@ -750,19 +751,23 @@ function categoryGroupFor(rawCategory, appPath) {
   if (c === "utilities") return "Accessories";
   if (appPath.startsWith("/System/Applications/Utilities/")) return "Accessories";
   if (appPath.startsWith("/System/")) return "System";
-  return c ? "Other" : "Other";
+  return "Other";
 }
 
 let categorizedApps = null;
+let categorizedKey = "";
 
 ipcMain.handle("apps:list", async () => {
   const apps = listInstalledApps();
-  if (categorizedApps && categorizedApps.length === apps.length) return categorizedApps;
+  // Key on the exact set of paths: a same-count add+remove must still invalidate.
+  const key = apps.map((a) => a.path).join("\n");
+  if (categorizedApps && categorizedKey === key) return categorizedApps;
   let raw = {};
   if (nativeTracker) {
     raw = await nativeTracker.getCategories(apps.map((a) => a.path));
   }
   categorizedApps = apps.map((a) => ({ ...a, category: categoryGroupFor(raw[a.path], a.path) }));
+  categorizedKey = key;
   return categorizedApps;
 });
 
@@ -911,6 +916,22 @@ ipcMain.on("pins:contextmenu", (_e, appName) => {
   menu.popup({ window: win });
 });
 
+/** Right-click on an app in the drawer: open, or pin/unpin it to the taskbar. */
+ipcMain.on("apps:contextmenu", (_e, appName) => {
+  if (!appName || typeof appName !== "string") return;
+  const win = BrowserWindow.fromWebContents(_e.sender);
+  const isPinned = loadConfig().pinned.includes(appName);
+  const menu = Menu.buildFromTemplate([
+    { label: "Open " + appName, click: () => void launchApp(appName).catch(() => {}) },
+    { type: "separator" },
+    {
+      label: isPinned ? "Unpin from Taskbar" : "Pin to Taskbar",
+      click: () => togglePin(appName),
+    },
+  ]);
+  menu.popup({ window: win });
+});
+
 async function performTaskAction(task, action) {
   try {
     if (task.kind === "native") {
@@ -977,6 +998,7 @@ app.on("before-quit", () => {
 
 app.on("will-quit", () => {
   quitting = true;
+  if (frontPollTimer) clearInterval(frontPollTimer);
   if (nativeTracker) nativeTracker.kill();
 });
 

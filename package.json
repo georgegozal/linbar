@@ -20,6 +20,7 @@
       "category": "public.app-category.utilities",
       "target": ["dmg", "zip"]
     },
-    "files": ["main.js", "preload.js", "lib/**", "renderer/**", "helper/linbar-helper"]
+    "files": ["main.js", "preload.js", "lib/**", "renderer/**", "helper/linbar-helper"],
+    "asarUnpack": ["helper/linbar-helper"]
   }
 }
