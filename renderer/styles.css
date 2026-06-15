@@ -422,12 +422,13 @@ body {
   position: fixed;
   bottom: calc(var(--panel-h) + 6px);
   right: 8px;
-  width: 230px;
-  background: #f2f2f2;
-  border: 1px solid #888;
-  box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.25);
+  width: 84px;
+  background: linear-gradient(180deg, #fbfbfb 0%, #f0f0f0 100%);
+  border: 1px solid #9a9a9a;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
   z-index: 60;
-  padding: 12px;
+  padding: 10px;
 }
 
 .vol-pop[hidden] {
@@ -436,37 +437,90 @@ body {
 
 .vol-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 #volSlider {
-  flex: 1 1 auto;
-  accent-color: var(--mint-start);
+  -webkit-appearance: none;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 5px;
+  height: 104px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to top,
+    var(--mint-start-hi) 0%,
+    var(--mint-start) var(--vol, 0%),
+    #cfcfcf var(--vol, 0%),
+    #cfcfcf 100%
+  );
+  cursor: pointer;
+  outline: none;
+}
+
+#volSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--mint-start);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: transform 0.1s ease;
+}
+
+#volSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.12);
+}
+
+#volSlider:active::-webkit-slider-thumb {
+  background: var(--mint-start-hi);
 }
 
 .vol-level {
-  flex: 0 0 38px;
-  text-align: right;
-  font-size: 12px;
+  text-align: center;
+  font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  color: var(--mint-start-lo);
 }
 
 #volMuteBtn {
   width: 100%;
   padding: 6px 0;
   border: 1px solid var(--btn-border);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--btn-face);
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #333;
   cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
 #volMuteBtn:hover {
-  background: #d9e8f7;
+  border-color: #7a7a7a;
+  background: linear-gradient(180deg, #ffffff 0%, #e6e6e6 100%);
+}
+
+#volMuteBtn:active {
+  background: var(--btn-active);
+}
+
+#volMuteBtn.muted {
+  background: linear-gradient(180deg, #ffe7c2 0%, #ffd49a 100%);
+  border-color: #d99645;
+  color: #8a4b00;
+}
+
+#volMuteBtn.muted:hover {
+  background: linear-gradient(180deg, #fff0d8 0%, #ffdcab 100%);
 }
 
 .clock {

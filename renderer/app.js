@@ -610,15 +610,27 @@
 
   function applyVolumeUi(v) {
     const muted = !!v.muted;
+    const level = Math.round(v.level);
     trayVol.classList.toggle("muted", muted);
-    trayVol.title = muted ? "Muted" : "Volume " + Math.round(v.level) + "% — scroll to adjust";
-    volSlider.value = Math.round(v.level);
-    volLevel.textContent = Math.round(v.level) + "%";
+    trayVol.title = muted ? "Muted" : "Volume " + level + "% — scroll to adjust";
+    volSlider.value = level;
+    volSlider.style.setProperty("--vol", level + "%");
+    volLevel.textContent = level + "%";
     volMuteBtn.textContent = muted ? "Unmute" : "Mute";
+    volMuteBtn.classList.toggle("muted", muted);
   }
 
   async function syncVolumeUi() {
     applyVolumeUi(await tb.getVolume());
+  }
+
+  function positionVolPop() {
+    const r = trayVol.getBoundingClientRect();
+    const w = volPop.offsetWidth || 84;
+    let left = r.left + r.width / 2 - w / 2;
+    left = Math.max(4, Math.min(left, window.innerWidth - w - 4));
+    volPop.style.left = left + "px";
+    volPop.style.right = "auto";
   }
 
   function setVolOpen(open) {
@@ -627,6 +639,7 @@
       startMenu.hidden = true;
       calendarPop.hidden = true;
       clipPop.hidden = true;
+      positionVolPop();
       void syncVolumeUi();
     }
   }
@@ -651,23 +664,48 @@
     applyVolumeUi(await tb.toggleMute());
   });
 
-  // Accumulate scroll ticks locally and reflect them instantly; only the (slow)
-  // setVolume call is debounced, so every notch of the wheel counts.
-  let volWheelTarget = null;
-  let volWheelTimer = null;
-  trayVol.addEventListener("wheel", (e) => {
+  // Speaker scroll: keep a local target, reflect it instantly, and continuously
+  // "chase" it with setVolume (osascript is slow, so we coalesce instead of
+  // debouncing). Input is sign-based and rate-limited so trackpad inertia and
+  // high-resolution wheels can't overshoot or stall.
+  let volTarget = null;
+  let volSetBusy = false;
+  let lastStepAt = 0;
+
+  function chaseVolume() {
+    if (volSetBusy || volTarget == null) return;
+    const target = volTarget;
+    volSetBusy = true;
+    tb.setVolume(target)
+      .then((v) => {
+        volSetBusy = false;
+        if (volTarget != null && volTarget !== target) {
+          chaseVolume(); // user kept scrolling; keep up with the latest target
+        } else {
+          volTarget = null;
+          if (v) applyVolumeUi(v); // settle the UI from the system once, at the end
+        }
+      })
+      .catch(() => {
+        volSetBusy = false;
+      });
+  }
+
+  function onVolWheel(e) {
     e.preventDefault();
-    const step = e.deltaY < 0 ? 5 : -5;
-    const base = volWheelTarget != null ? volWheelTarget : Number(volSlider.value) || 0;
-    volWheelTarget = Math.max(0, Math.min(100, base + step));
-    applyVolumeUi({ muted: false, level: volWheelTarget });
-    if (volWheelTimer) clearTimeout(volWheelTimer);
-    volWheelTimer = setTimeout(async () => {
-      const target = volWheelTarget;
-      volWheelTarget = null;
-      applyVolumeUi(await tb.setVolume(target));
-    }, 90);
-  }, { passive: false });
+    const now = e.timeStamp || Date.now();
+    if (now - lastStepAt < 35) return; // cap the ramp (~one 4% step per 35ms)
+    lastStepAt = now;
+    const step = e.deltaY < 0 ? 4 : -4; // sign only: device-independent
+    const base = volTarget != null ? volTarget : Number(volSlider.value) || 0;
+    volTarget = Math.max(0, Math.min(100, base + step));
+    applyVolumeUi({ muted: false, level: volTarget });
+    chaseVolume();
+  }
+
+  // Scroll to adjust over the speaker icon and anywhere on the open popup.
+  trayVol.addEventListener("wheel", onVolWheel, { passive: false });
+  volPop.addEventListener("wheel", onVolWheel, { passive: false });
 
   // --- Battery indicator (hidden on machines without one) ---
   const trayBatt = document.getElementById("trayBatt");
