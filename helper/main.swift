@@ -37,6 +37,64 @@ func axBool(_ el: AXUIElement, _ attr: String) -> Bool {
     return (axCopy(el, attr) as? Bool) ?? false
 }
 
+func axPoint(_ el: AXUIElement, _ attr: String) -> CGPoint? {
+    guard let val = axCopy(el, attr), AXValueGetType(val as! AXValue) == .cgPoint else { return nil }
+    var point = CGPoint.zero
+    guard AXValueGetValue(val as! AXValue, .cgPoint, &point) else { return nil }
+    return point
+}
+
+func axSize(_ el: AXUIElement, _ attr: String) -> CGSize? {
+    guard let val = axCopy(el, attr), AXValueGetType(val as! AXValue) == .cgSize else { return nil }
+    var size = CGSize.zero
+    guard AXValueGetValue(val as! AXValue, .cgSize, &size) else { return nil }
+    return size
+}
+
+func axSetPoint(_ el: AXUIElement, _ attr: String, _ point: CGPoint) {
+    var p = point
+    guard let val = AXValueCreate(.cgPoint, &p) else { return }
+    AXUIElementSetAttributeValue(el, attr as CFString, val)
+}
+
+func axSetSize(_ el: AXUIElement, _ attr: String, _ size: CGSize) {
+    var s = size
+    guard let val = AXValueCreate(.cgSize, &s) else { return }
+    AXUIElementSetAttributeValue(el, attr as CFString, val)
+}
+
+/// AX window position uses top-left global screen coordinates (Y grows downward).
+private struct VisibleAreaTL {
+    let top: CGFloat
+    let bottom: CGFloat
+    let left: CGFloat
+    let width: CGFloat
+}
+
+private func globalFlipY() -> CGFloat {
+    NSScreen.screens.map { $0.frame.maxY }.max() ?? NSScreen.main!.frame.maxY
+}
+
+private func visibleAreaTopLeft(on screen: NSScreen) -> VisibleAreaTL {
+    let vf = screen.visibleFrame
+    let flip = globalFlipY()
+    return VisibleAreaTL(
+        top: flip - vf.maxY,
+        bottom: flip - vf.minY,
+        left: vf.minX,
+        width: vf.width
+    )
+}
+
+private func screenForWindow(topLeft pos: CGPoint, size: CGSize) -> NSScreen? {
+    let flip = globalFlipY()
+    let centerBL = NSPoint(
+        x: pos.x + size.width / 2,
+        y: flip - (pos.y + size.height / 2)
+    )
+    return NSScreen.screens.first { $0.frame.contains(centerBL) } ?? NSScreen.main
+}
+
 func axWindowID(_ el: AXUIElement) -> CGWindowID? {
     var wid: CGWindowID = 0
     guard _AXUIElementGetWindow(el, &wid) == .success, wid != 0 else { return nil }
@@ -95,6 +153,10 @@ final class Manager {
     static let shared = Manager()
     var apps: [pid_t: TrackedApp] = [:]
     private var pendingEmit: DispatchWorkItem?
+    private var pendingReserve: DispatchWorkItem?
+    var reservedBottom: CGFloat = 0
+    var linbarPid: pid_t = 0
+    private var lastAdjusted: [CGWindowID: TimeInterval] = [:]
 
     func start() {
         let trusted = AXIsProcessTrusted()
@@ -173,6 +235,8 @@ final class Manager {
                 kAXTitleChangedNotification,
                 kAXWindowMiniaturizedNotification,
                 kAXWindowDeminiaturizedNotification,
+                kAXWindowMovedNotification,
+                kAXWindowResizedNotification,
             ] {
                 AXObserverAddNotification(obs, el, note as CFString, refcon)
             }
@@ -181,9 +245,75 @@ final class Manager {
 
     func scheduleSnapshot(reason: String) {
         pendingEmit?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.emitSnapshot(reason: reason) }
+        let work = DispatchWorkItem { [weak self] in
+            self?.emitSnapshot(reason: reason)
+            self?.scheduleReserveEnforcement()
+        }
         pendingEmit = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: work)
+    }
+
+    func scheduleReserveEnforcement() {
+        guard reservedBottom > 0 else { return }
+        pendingReserve?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.enforceReservedSpace() }
+        pendingReserve = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
+    }
+
+    /// Inset windows that tile to the screen bottom so they stop above the LinBar strip.
+    /// macOS has no public API to shrink NSScreen.visibleFrame like the Dock does.
+    func enforceReservedSpace() {
+        guard reservedBottom > 0 else { return }
+        let reserve = reservedBottom
+        let now = Date().timeIntervalSince1970
+
+        for (pid, tracked) in apps {
+            if pid == linbarPid { continue }
+            if tracked.bundleID == "com.linbar.app" { continue }
+            for el in tracked.windows() {
+                guard let wid = axWindowID(el) else { continue }
+                if axBool(el, kAXMinimizedAttribute as String) { continue }
+                if let last = lastAdjusted[wid], now - last < 0.35 { continue }
+
+                guard let pos = axPoint(el, kAXPositionAttribute as String),
+                      let size = axSize(el, kAXSizeAttribute as String) else { continue }
+                if size.width < 120 || size.height < 80 { continue }
+
+                guard let screen = screenForWindow(topLeft: pos, size: size) else { continue }
+                let area = visibleAreaTopLeft(on: screen)
+
+                let winBottom = pos.y + size.height
+                let allowedBottom = area.bottom - reserve
+                let fullWidth = size.width >= area.width - 24
+                let touchesBottom = winBottom >= area.bottom - 12
+                let encroaches = winBottom > allowedBottom + 1
+
+                guard encroaches || (fullWidth && touchesBottom) else { continue }
+
+                var newPos = pos
+                var newSize = size
+                if fullWidth && touchesBottom {
+                    newPos.x = area.left
+                    newSize.width = area.width
+                    newPos.y = area.top
+                    newSize.height = max(120, allowedBottom - area.top)
+                } else if encroaches {
+                    newSize.height = max(120, allowedBottom - pos.y)
+                } else {
+                    continue
+                }
+
+                if abs(newPos.x - pos.x) < 1 && abs(newPos.y - pos.y) < 1 &&
+                    abs(newSize.width - size.width) < 1 && abs(newSize.height - size.height) < 1 {
+                    continue
+                }
+
+                axSetSize(el, kAXSizeAttribute as String, newSize)
+                axSetPoint(el, kAXPositionAttribute as String, newPos)
+                lastAdjusted[wid] = now
+            }
+        }
     }
 
     func emitSnapshot(reason: String) {
@@ -240,6 +370,20 @@ final class Manager {
 
         if cmd == "snapshot" {
             scheduleSnapshot(reason: "request")
+            return
+        }
+
+        if cmd == "reserve" {
+            if let h = obj["height"] as? Double, h > 0 {
+                reservedBottom = CGFloat(h)
+            } else if let h = obj["height"] as? Int, h > 0 {
+                reservedBottom = CGFloat(h)
+            } else {
+                reservedBottom = 0
+            }
+            if let p = obj["pid"] as? Int { linbarPid = pid_t(p) }
+            else if let p = obj["pid"] as? Double { linbarPid = pid_t(p) }
+            scheduleReserveEnforcement()
             return
         }
 

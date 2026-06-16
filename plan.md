@@ -6,6 +6,22 @@ with calendar — while staying a native-feeling macOS utility.
 
 ## 0. Changelog
 
+### 2026-06-16 — Dock-like screen space reservation
+
+macOS has no public API for third-party panels to shrink `NSScreen.visibleFrame` the way
+the Dock does. LinBar now approximates Dock behavior in two parts:
+
+- **Panel placement:** Electron positions the bar at the bottom of `display.workArea` (not
+  the physical screen edge), so it aligns with where apps tile when the stock Dock is visible.
+- **Native helper inset:** `helper/main.swift` command `{"cmd":"reserve","height":48}` tells
+  the helper to shrink tiled/maximized windows by `PANEL_HEIGHT` at the **bottom** of the
+  work area. Config key `reserveScreenSpace` (default `true`); toggle in Preferences.
+- **Coordinate fix:** AX `kAXPositionAttribute` uses **top-left** global coordinates; the
+  first implementation mistakenly used AppKit bottom-left `visibleFrame` values, which
+  reserved space under the menu bar instead of above LinBar.
+
+Requires the native helper + Accessibility. AppleScript fallback does not inset windows.
+
 ### 2026-06-16 — Phase 6 installable app (shipped)
 
 - **Build:** `npm run dist` / `npm run dist:dir`, custom `build/icon.icns`, tray template PNG.
@@ -18,8 +34,6 @@ with calendar — while staying a native-feeling macOS utility.
 - **README:** install-from-DMG instructions.
 
 Still open within Phase 6: signed/notarized DMG for public distribution, Homebrew cask.
-Panel/work-area stacking experiments were attempted and **reverted** — bar stays
-`alwaysOnTop` at the physical screen bottom for now.
 
 ### 2026-06-16 — installability & settings planning
 
@@ -52,8 +66,8 @@ and **add a settings surface** before piling on more panel features.
 
 | Layer | Status | Notes |
 | --- | --- | --- |
-| Electron panel | ✅ | Frameless, always-on-top, 48px bar + 552px click-through popup zone |
-| Native helper (`helper/linbar-helper`) | ✅ primary | Swift, NDJSON over stdio, AXObserver + NSWorkspace, <100ms updates |
+| Electron panel | ✅ | Always-on-top; anchored to `workArea` bottom; 48px bar + click-through popup zone |
+| Native helper (`helper/linbar-helper`) | ✅ primary | Swift, NDJSON stdio, AXObserver + NSWorkspace; optional bottom space reservation |
 | AppleScript fallback (`lib/applescript.js`) | ✅ fallback | Used when helper missing or Accessibility denied; still slow under load |
 | Fast frontmost poll (`lib/lsappinfo.js`) | ✅ | ~20ms; used on fallback path between full scans |
 | Config (`lib/config.js`) | ✅ | `~/.config/linbar/config.json` — pins, drawer view, login item, dock tile, onboarding |
@@ -84,18 +98,22 @@ and **add a settings surface** before piling on more panel features.
 | Code signing / notarization | ❌ |
 | Custom app icon | ✅ |
 | First-run onboarding | ✅ |
+| Dock-like bottom space reservation | ✅ native helper; `reserveScreenSpace` config |
 | Window grouping, urgency flash, drag-reorder | ❌ |
 | Autohide, multi-monitor, theming | ❌ |
 | Show-desktop button, network tray, Spaces pager | ❌ |
 
-### Installability — **current gap**
+### Installability — **Phase 6 basics shipped**
 
-Running from source (`npm start`) works but is developer-only. A prior `npm run pack` produced
-`dist/mac/LinBar.app` (unpacked bundle, no DMG). To use it like a normal app today you would
-manually drag `LinBar.app` into `/Applications` — but there is no documented flow, no custom
-icon, no login-item support, and Gatekeeper will warn on unsigned builds.
+`npm run dist` produces a DMG/zip; drag `LinBar.app` to `/Applications`. Menu-bar icon,
+Preferences, login item, and onboarding are in place. Code signing/notarization remain
+for public distribution.
 
-**What "installable" should mean:**
+**Dock coexistence:** hide the stock Dock for the cleanest panel experience. With
+`reserveScreenSpace` enabled (default), tiled windows stop above LinBar; the helper does
+not modify `NSScreen.visibleFrame` itself — it adjusts individual window frames via AX.
+
+**What "installable" means:**
 
 1. `npm run dist` produces `dist/LinBar-x.y.z.dmg` (or `.zip`).
 2. User drags LinBar to `/Applications` (or an optional install script).
@@ -201,6 +219,7 @@ These map directly to behavior that already exists (hardcoded or env-var-only):
 | `middleClickCloses` | bool | `true` | Same |
 | `volumeScrollStep` | number | `5` | Currently hardcoded 5% per notch |
 | `onboardingComplete` | bool | `false` | First-run wizard state |
+| `reserveScreenSpace` | bool | `true` | ✅ Shipped — native helper bottom inset |
 
 ### 3.3 Settings v2 — panel layout (after v1 ships)
 

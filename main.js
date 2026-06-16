@@ -275,6 +275,12 @@ function handleNativeSnapshot(snap) {
   }
 }
 
+function applyScreenReserve() {
+  if (!nativeTracker || typeof nativeTracker.setReserve !== "function") return;
+  const height = loadConfig().reserveScreenSpace ? PANEL_HEIGHT : 0;
+  nativeTracker.setReserve(height, process.pid);
+}
+
 function startBackend() {
   if (!FORCE_APPLESCRIPT) {
     nativeTracker = startNativeTracker({
@@ -282,6 +288,7 @@ function startBackend() {
       onStatus: (s) => {
         if (s.trusted) {
           nativeMode = true;
+          applyScreenReserve();
           console.log("[LinBar] native helper active (event-driven backend)");
         } else {
           console.warn(
@@ -318,11 +325,13 @@ function startAppleScriptScheduler() {
 }
 
 function panelBoundsForDisplay(display) {
-  const { x, y, width, height } = display.bounds;
+  // Align the bar with the bottom of the macOS work area (where apps tile), not the
+  // physical screen edge — avoids a Dock-sized gap when the stock Dock is visible.
+  const area = display.workArea;
   return {
-    x,
-    y: y + height - WINDOW_HEIGHT,
-    width,
+    x: area.x,
+    y: area.y + area.height - WINDOW_HEIGHT,
+    width: area.width,
     height: WINDOW_HEIGHT,
   };
 }
@@ -384,7 +393,10 @@ function createWindow() {
   });
 
   screen.on("display-metrics-changed", () => {
-    if (mainWindow && !mainWindow.isDestroyed()) positionPanelWindow(mainWindow);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      positionPanelWindow(mainWindow);
+      applyScreenReserve();
+    }
   });
 }
 
@@ -750,8 +762,10 @@ ipcMain.handle("config:set", (_e, partial) => {
   if (typeof partial.launchAtLogin === "boolean") next.launchAtLogin = partial.launchAtLogin;
   if (typeof partial.hideDockIcon === "boolean") next.hideDockIcon = partial.hideDockIcon;
   if (typeof partial.onboardingComplete === "boolean") next.onboardingComplete = partial.onboardingComplete;
+  if (typeof partial.reserveScreenSpace === "boolean") next.reserveScreenSpace = partial.reserveScreenSpace;
   const cfg = saveConfig(next);
   applyLifecycleFromConfig();
+  applyScreenReserve();
   rebuildTrayMenu();
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("taskbar:configUpdated", cfg);

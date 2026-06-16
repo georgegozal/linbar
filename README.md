@@ -70,6 +70,9 @@ npm run dist:dir      # creates dist/mac/LinBar.app
 - **Minimized windows** stay on the bar, dimmed and italic.
 - **Pinned launchers**: pin any running app from its right-click menu; pins
   persist in `~/.config/linbar/config.json`.
+- **Dock-like spacing**: with the native helper, maximized windows stop above the
+  taskbar (no gap, no overlap). Toggle in **Preferences → Reserve space for the
+  taskbar** (`reserveScreenSpace`, on by default).
 - **Start menu** with common apps and folders.
 - **Clock with calendar popup** (click the clock).
 - Tray: About This Mac, notification settings, **clipboard preview**, and a
@@ -84,8 +87,12 @@ npm run dist:dir      # creates dist/mac/LinBar.app
 
 ## Tips
 
-- The bar sits over the stock Dock; hide the Dock (System Settings →
-  Desktop & Dock → automatically hide) for the full Linux feel.
+- Hide the stock Dock for the full Linux-panel feel (onboarding offers a one-click
+  option, or **System Settings → Desktop & Dock → automatically hide**).
+- With **Reserve space for the taskbar** enabled (Preferences), tiled windows shrink
+  to sit flush above LinBar — similar to how apps respect the macOS Dock. Requires
+  Accessibility and the native helper.
+- If a window was resized incorrectly after an upgrade, quit and reopen that app once.
 
 ## Static prototype
 

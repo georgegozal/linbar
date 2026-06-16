@@ -63,8 +63,25 @@ XFCE keeps each window in its slot for its lifetime. `taskOrderByKey` (main.js) 
 | `launchAtLogin` | macOS login item via `app.setLoginItemSettings` |
 | `hideDockIcon` | Hide LinBar's Dock tile (`app.dock.hide()`); menu-bar icon remains |
 | `onboardingComplete` | First-run welcome popup shown once when `false` |
+| `reserveScreenSpace` | Native helper insets tiled windows by 48px at the bottom (Dock-like) |
 
 Pins are user-controlled — **nothing is pre-pinned by default**. Clipboard history is in-memory only, never persisted.
+
+### Dock-like screen space (native helper)
+
+macOS only shrinks the global work area for the **stock Dock** — not third-party panels.
+LinBar works around this:
+
+1. **Panel anchor:** `panelBoundsForDisplay()` uses `display.workArea` so the bar sits on
+   the same bottom edge apps use (eliminates the Dock-sized gap when the Dock is visible).
+2. **Window inset:** helper command `reserve` (`lib/helper.js` → `setReserve(height, pid)`)
+   runs `enforceReservedSpace()` — for full-width windows tiled to the screen bottom, sets
+   AX size/position so the window bottom stops `PANEL_HEIGHT` px above the work-area bottom.
+3. **Coordinates:** AX window position is **top-left** global (Y down). Always convert
+   `NSScreen.visibleFrame` (bottom-left) before reading or writing AX position/size.
+
+Toggle via `reserveScreenSpace` in config / Preferences. Rebuild helper after editing
+`helper/main.swift` (`npm run build:helper`).
 
 ### App lifecycle (Phase 6)
 
@@ -85,7 +102,8 @@ Settings window (`settings-preload.js` → `window.linbarSettings`): `getConfig`
 - **App launching uses `/usr/bin/open -a`**, not AppleScript `activate`, so launching needs no Automation permission. Window *actions* (raise/minimize/close) need Accessibility (native) or Automation (fallback).
 - **Icons:** the native helper's `NSWorkspace.icon(forFile:)` gives the real bundle icon; Electron's `getFileIcon` only returns the generic app icon for `.app` paths, so it's a last resort (`iconForBundlePath` in main.js).
 - **Packaging:** the helper binary must stay outside `app.asar` — `build.asarUnpack` keeps it in `app.asar.unpacked`, and `lib/helper.js` rewrites the path accordingly. App icon is `build/icon.icns`; tray template is `build/trayTemplate.png` (bundled in asar). Don't break asarUnpack or packaged builds silently fall back to AppleScript.
-- **Panel stacking:** the bar uses `alwaysOnTop: true` at the physical screen bottom (`display.bounds`). Do not switch to `workArea` or toggle always-on-top without explicit user testing — prior attempts broke usability.
+- **Panel placement:** always-on-top at the **work-area** bottom (`display.workArea`), not `display.bounds`. Do not toggle always-on-top off without careful testing.
+- **Screen reservation:** only the native helper insets other apps' windows; never mix AppKit bottom-left frame values with AX top-left position — that reserves space at the wrong edge.
 - **All IPC task inputs are validated** in `main.js` (`validateTask`) — keep that strict; the renderer is the trust boundary.
 - When editing `helper/main.swift`, remember to `npm run build:helper` — `npm start` runs the already-compiled binary.
 - `plan.md` is a living roadmap/changelog (XFCE-parity goals, phased plan). Check it for intended direction and update its changelog when doing notable work.
