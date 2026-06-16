@@ -549,6 +549,11 @@ body {
   color: #444;
 }
 
+.show-desktop-btn {
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
 .start-menu {
   position: fixed;
   bottom: calc(var(--panel-h) + 6px);

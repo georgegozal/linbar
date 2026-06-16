@@ -1009,6 +1009,26 @@ ipcMain.handle("window:close", async (_e, rawTask) => {
   }
 });
 
+ipcMain.handle("desktop:minimizeAll", async () => {
+  try {
+    if (nativeTracker && typeof nativeTracker.minimizeAll === "function") {
+      nativeTracker.minimizeAll();
+      markTaskInteraction();
+      return { ok: true };
+    }
+    const snapshot = await listTaskSnapshot(ownProcessNamesToExclude());
+    const tasks = snapshot.tasks.filter((t) => !t.minimized);
+    for (const task of tasks) {
+      await minimizeWindowTask(task);
+    }
+    markTaskInteraction();
+    scheduleTaskRefresh(0);
+    return { ok: true, count: tasks.length };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+
 function broadcastPins() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send("taskbar:pinsUpdated", loadConfig().pinned);

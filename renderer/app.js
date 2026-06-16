@@ -316,6 +316,11 @@
     setCalendarOpen(calendarPop.hidden);
   });
   calendarPop.addEventListener("click", (e) => e.stopPropagation());
+  document.getElementById("showDesktopBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeAllPopups();
+    void tb.showDesktop();
+  });
   document.getElementById("calPrev").addEventListener("click", () => {
     calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() - 1, 1);
     renderCalendar();

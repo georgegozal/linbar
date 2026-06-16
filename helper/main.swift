@@ -363,6 +363,18 @@ final class Manager {
         return nil
     }
 
+    func minimizeAllWindows() {
+        for (pid, tracked) in apps {
+            if pid == linbarPid { continue }
+            if tracked.bundleID == "com.linbar.app" { continue }
+            for el in tracked.windows() {
+                if axBool(el, kAXMinimizedAttribute as String) { continue }
+                AXUIElementSetAttributeValue(el, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+            }
+        }
+        scheduleSnapshot(reason: "minimizeAll")
+    }
+
     func handle(command line: String) {
         guard let data = line.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -384,6 +396,11 @@ final class Manager {
             if let p = obj["pid"] as? Int { linbarPid = pid_t(p) }
             else if let p = obj["pid"] as? Double { linbarPid = pid_t(p) }
             scheduleReserveEnforcement()
+            return
+        }
+
+        if cmd == "minimizeAll" {
+            minimizeAllWindows()
             return
         }
 

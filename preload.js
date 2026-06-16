@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld("taskbar", {
   setVolume: (level) => ipcRenderer.invoke("audio:setVolume", level),
   getBattery: () => ipcRenderer.invoke("battery:get"),
   openBatterySettings: () => ipcRenderer.invoke("sys:batterySettings"),
+  showDesktop: () => ipcRenderer.invoke("desktop:minimizeAll"),
   setMouseIgnore: (ignore) => ipcRenderer.send("panel:setMouseIgnore", ignore),
   onBlur: (listener) => {
     if (typeof listener !== "function") return () => {};
