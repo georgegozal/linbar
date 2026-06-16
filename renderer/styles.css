@@ -1023,3 +1023,78 @@ body {
   color: #fff;
   font-weight: 700;
 }
+
+.onboard-pop {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--panel-h) + 10px);
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 24px));
+  background: #f7f7f7;
+  border: 1px solid #888;
+  box-shadow: 4px 4px 18px rgba(0, 0, 0, 0.28);
+  z-index: 80;
+  padding: 14px 16px 12px;
+  border-radius: 8px 8px 0 0;
+}
+
+.onboard-pop[hidden] {
+  display: none !important;
+}
+
+.onboard-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.onboard-lead {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #444;
+}
+
+.onboard-steps {
+  margin: 0 0 12px 18px;
+  padding: 0;
+  font-size: 12px;
+  color: #333;
+}
+
+.onboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.onboard-btn {
+  border: 1px solid var(--btn-border);
+  border-radius: 4px;
+  background: var(--btn-face);
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.onboard-btn.primary {
+  background: linear-gradient(180deg, var(--mint-start-hi) 0%, var(--mint-start) 100%);
+  border-color: var(--mint-start-lo);
+  color: #fff;
+  font-weight: 600;
+}
+
+.onboard-btn.wide {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.onboard-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}

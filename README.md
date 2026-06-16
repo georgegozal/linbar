@@ -35,6 +35,31 @@ npm install      # also compiles helper/linbar-helper
 npm start
 ```
 
+## Install as a macOS app
+
+Build a distributable app bundle or DMG:
+
+```bash
+npm install
+npm run dist          # creates dist/LinBar-<version>.dmg and dist/LinBar-<version>-mac.zip
+# or, for a quick unpacked bundle (no DMG):
+npm run dist:dir      # creates dist/mac/LinBar.app
+```
+
+**Install:**
+
+1. Open the DMG (or use the `.app` from `dist/mac/`).
+2. Drag **LinBar** to **Applications**.
+3. Launch LinBar from Applications, Launchpad, or Spotlight.
+4. On first launch, follow the setup popup:
+   - Grant **Accessibility** (System Settings → Privacy & Security → Accessibility → LinBar).
+   - Optionally hide the macOS Dock and enable **Open at login**.
+5. Use the **menu-bar LinBar icon** (top-right) or **LinBar → Preferences…** to change settings later.
+
+**Unsigned builds:** macOS may block the first launch. Right-click LinBar → **Open**, or allow it in **System Settings → Privacy & Security**.
+
+**Permissions when installed:** Accessibility applies to `LinBar.app` (not your terminal). If the task list stays empty after granting access, quit and reopen LinBar once.
+
 ## Features
 
 - One task button per **window** (not per app), with app icons, stable

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, Menu, shell, clipboard, nativeImage } = require("electron");
+const { app, BrowserWindow, ipcMain, screen, Menu, shell, clipboard, nativeImage, Tray } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -73,7 +73,16 @@ const {
 } = require("./lib/applescript");
 const { getFrontmostAppName } = require("./lib/lsappinfo");
 const { startNativeTracker } = require("./lib/helper");
-const { loadConfig, saveConfig } = require("./lib/config");
+const { loadConfig, saveConfig, CONFIG_PATH } = require("./lib/config");
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+  });
+}
 
 const PANEL_HEIGHT = 48;
 /** Window is always tall enough for popups; the area above the bar is click-through. */
@@ -86,6 +95,8 @@ const TASK_ACTIVE_WINDOW_MS = 8000;
 const FRONT_POLL_MS = 700;
 
 let mainWindow = null;
+let settingsWindow = null;
+let tray = null;
 let taskRefreshTimer = null;
 let taskRefreshInFlight = false;
 let lastInteractionAt = 0;
@@ -355,6 +366,10 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 
+  mainWindow.webContents.once("did-finish-load", () => {
+    maybeShowOnboarding();
+  });
+
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
   // Start click-through; the renderer re-enables mouse events whenever the
@@ -373,16 +388,103 @@ function createWindow() {
   });
 }
 
+function applyLifecycleFromConfig() {
+  const cfg = loadConfig();
+  if (process.platform !== "darwin") return;
+  app.setLoginItemSettings({ openAtLogin: cfg.launchAtLogin, openAsHidden: false });
+  if (app.dock) {
+    if (cfg.hideDockIcon) app.dock.hide();
+    else app.dock.show();
+  }
+}
+
+function trayIconPath() {
+  const trayPath = path.join(__dirname, "build", "trayTemplate.png");
+  if (fs.existsSync(trayPath)) return trayPath;
+  const iconPath = path.join(__dirname, "build", "icon.png");
+  if (fs.existsSync(iconPath)) return iconPath;
+  return null;
+}
+
+function rebuildTrayMenu() {
+  if (!tray) return;
+  const cfg = loadConfig();
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Preferences…", click: () => openSettingsWindow() },
+      {
+        label: "Open at Login",
+        type: "checkbox",
+        checked: cfg.launchAtLogin,
+        click: (item) => {
+          saveConfig({ launchAtLogin: item.checked });
+          applyLifecycleFromConfig();
+          rebuildTrayMenu();
+        },
+      },
+      { type: "separator" },
+      { label: "Quit LinBar", click: () => app.quit() },
+    ]),
+  );
+}
+
+function createTray() {
+  if (process.platform !== "darwin" || tray) return;
+  const iconPath = trayIconPath();
+  if (!iconPath) return;
+  const img = nativeImage.createFromPath(iconPath);
+  if (img.isEmpty()) return;
+  img.setTemplateImage(true);
+  tray = new Tray(img);
+  tray.setToolTip("LinBar");
+  rebuildTrayMenu();
+}
+
+function openSettingsWindow() {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.show();
+    settingsWindow.focus();
+    return;
+  }
+  settingsWindow = new BrowserWindow({
+    width: 440,
+    height: 340,
+    resizable: false,
+    minimizable: true,
+    maximizable: false,
+    fullscreenable: false,
+    title: "LinBar Preferences",
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, "renderer", "settings-preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  settingsWindow.setMenu(null);
+  settingsWindow.once("ready-to-show", () => settingsWindow.show());
+  settingsWindow.on("closed", () => {
+    settingsWindow = null;
+  });
+  settingsWindow.loadFile(path.join(__dirname, "renderer", "settings.html"));
+}
+
+function maybeShowOnboarding() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (loadConfig().onboardingComplete) return;
+  mainWindow.webContents.send("taskbar:onboarding", { show: true });
+}
+
 function setMacMenu() {
   if (process.platform !== "darwin") return;
   const template = [
     {
       label: app.name,
-      submenu: [{ role: "quit" }],
-    },
-    {
-      label: "View",
-      submenu: [{ role: "reload" }, { type: "separator" }, { role: "togglefullscreen" }],
+      submenu: [
+        { label: "Preferences…", accelerator: "Command+,", click: () => openSettingsWindow() },
+        { type: "separator" },
+        { label: "Quit LinBar", accelerator: "Command+Q", click: () => app.quit() },
+      ],
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -607,6 +709,58 @@ ipcMain.handle("sys:notificationSettings", async () => {
 
 ipcMain.handle("sys:settings", async () => {
   await shell.openExternal("x-apple.systempreferences:");
+  return { ok: true };
+});
+
+ipcMain.handle("sys:accessibilitySettings", async () => {
+  try {
+    await shell.openExternal(
+      "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility",
+    );
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+
+ipcMain.handle("sys:hideDock", async () => {
+  try {
+    await new Promise((resolve, reject) => {
+      execFile("/usr/bin/defaults", ["write", "com.apple.dock", "autohide", "-bool", "true"], (err) =>
+        err ? reject(err) : resolve(),
+      );
+    });
+    await new Promise((resolve) => {
+      execFile("/usr/bin/killall", ["Dock"], () => resolve());
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+
+ipcMain.handle("config:get", () => {
+  const cfg = loadConfig();
+  return { ...cfg, configPath: CONFIG_PATH, isPackaged: app.isPackaged };
+});
+
+ipcMain.handle("config:set", (_e, partial) => {
+  if (!partial || typeof partial !== "object") return loadConfig();
+  const next = {};
+  if (typeof partial.launchAtLogin === "boolean") next.launchAtLogin = partial.launchAtLogin;
+  if (typeof partial.hideDockIcon === "boolean") next.hideDockIcon = partial.hideDockIcon;
+  if (typeof partial.onboardingComplete === "boolean") next.onboardingComplete = partial.onboardingComplete;
+  const cfg = saveConfig(next);
+  applyLifecycleFromConfig();
+  rebuildTrayMenu();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("taskbar:configUpdated", cfg);
+  }
+  return cfg;
+});
+
+ipcMain.handle("app:openPreferences", () => {
+  openSettingsWindow();
   return { ok: true };
 });
 
@@ -977,7 +1131,10 @@ ipcMain.on("window:contextmenu", (_e, rawTask) => {
 });
 
 app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) return;
+  applyLifecycleFromConfig();
   setMacMenu();
+  createTray();
   createWindow();
   startBackend();
   watchClipboard();

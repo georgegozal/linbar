@@ -7,6 +7,8 @@
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:dir": "electron-builder --dir",
     "build:helper": "swiftc -O helper/main.swift -o helper/linbar-helper -framework Cocoa -framework ApplicationServices",
     "postinstall": "npm run build:helper || echo 'swiftc unavailable; LinBar will use the AppleScript fallback'"
   },
@@ -18,9 +20,13 @@
     "appId": "com.linbar.app",
     "mac": {
       "category": "public.app-category.utilities",
+      "icon": "build/icon.icns",
       "target": ["dmg", "zip"]
     },
-    "files": ["main.js", "preload.js", "lib/**", "renderer/**", "helper/linbar-helper"],
+    "dmg": {
+      "title": "LinBar ${version}"
+    },
+    "files": ["main.js", "preload.js", "lib/**", "renderer/**", "helper/linbar-helper", "build/trayTemplate.png"],
     "asarUnpack": ["helper/linbar-helper"]
   }
 }

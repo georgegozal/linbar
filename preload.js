@@ -56,4 +56,15 @@ contextBridge.exposeInMainWorld("taskbar", {
   openAboutMac: () => ipcRenderer.invoke("sys:aboutMac"),
   openNotificationSettings: () => ipcRenderer.invoke("sys:notificationSettings"),
   openSystemSettings: () => ipcRenderer.invoke("sys:settings"),
+  openAccessibilitySettings: () => ipcRenderer.invoke("sys:accessibilitySettings"),
+  hideDock: () => ipcRenderer.invoke("sys:hideDock"),
+  getConfig: () => ipcRenderer.invoke("config:get"),
+  setConfig: (partial) => ipcRenderer.invoke("config:set", partial),
+  openPreferences: () => ipcRenderer.invoke("app:openPreferences"),
+  onOnboarding: (listener) => {
+    if (typeof listener !== "function") return () => {};
+    const handler = (_event, payload) => listener(payload);
+    ipcRenderer.on("taskbar:onboarding", handler);
+    return () => ipcRenderer.removeListener("taskbar:onboarding", handler);
+  },
 });

@@ -4,9 +4,31 @@ Goal: make LinBar feel like the XFCE panel on Linux Mint/Xubuntu — instant win
 zero perceptible lag, rich right-click actions, pinned launchers, tray widgets, and a clock
 with calendar — while staying a native-feeling macOS utility.
 
-## 0. Changelog — 2026-06-15
+## 0. Changelog
 
-Maintenance pass + launcher/pinning UX:
+### 2026-06-16 — Phase 6 installable app (shipped)
+
+- **Build:** `npm run dist` / `npm run dist:dir`, custom `build/icon.icns`, tray template PNG.
+- **Lifecycle:** single-instance lock, launch-at-login + hide-Dock-tile via config, menu-bar icon
+  (Preferences, Open at Login, Quit), macOS app menu with Preferences.
+- **Preferences window:** minimal v1 (`renderer/settings.html`) — login item, hide Dock tile,
+  Accessibility deep link.
+- **First-run onboarding:** popup above the bar (Accessibility, hide macOS Dock, login item).
+- **Config keys added:** `launchAtLogin`, `hideDockIcon`, `onboardingComplete`.
+- **README:** install-from-DMG instructions.
+
+Still open within Phase 6: signed/notarized DMG for public distribution, Homebrew cask.
+Panel/work-area stacking experiments were attempted and **reverted** — bar stays
+`alwaysOnTop` at the physical screen bottom for now.
+
+### 2026-06-16 — installability & settings planning
+
+Roadmap refresh after a full codebase audit. The old plan still described an AppleScript-only
+polling stack and uncommitted `lsappinfo` work — both are now shipped. New focus: **make
+LinBar a normal macOS app** (install to `/Applications`, launch from Spotlight/Launchpad)
+and **add a settings surface** before piling on more panel features.
+
+### 2026-06-15 — maintenance pass + launcher/pinning UX
 
 - **Packaging fix:** added `build.asarUnpack: ["helper/linbar-helper"]`. Without it the
   native helper got packed inside `app.asar` while `lib/helper.js` looks for it under
@@ -14,171 +36,310 @@ Maintenance pass + launcher/pinning UX:
 - **Fallback bug:** `isLikelyHelperProcess` no longer drops every process whose name
   contains a `.` — that was hiding real apps like `zoom.us` from the bar.
 - **App drawer:** `apps:list` cache now keys on the full set of app paths (not just the
-  count), so a same-count install+uninstall reclassifies correctly. Removed a dead
-  `c ? "Other" : "Other"` ternary in `categoryGroupFor`.
+  count), so a same-count install+uninstall reclassifies correctly.
 - **Lifecycle:** the frontmost-poll `setInterval` is tracked and cleared on quit; the
   helper removes its `AXObserver` run-loop source in `untrack`.
-- **User-controlled pins:** nothing is pre-pinned anymore. Default pins are empty, the
-  hardcoded Safari pin and Documents shortcut are gone, and any app can be pinned/unpinned
-  from the drawer via right-click (`apps:contextmenu`) or from its existing right-click
-  menus. Existing configs keep their pins — unpin unwanted ones via right-click.
-- **Volume wheel sensitivity:** scrolling the speaker icon now accumulates ticks locally
-  and updates instantly (5% per notch), debouncing only the slow `setVolume` call, instead
-  of dropping ticks while one osascript call was in flight.
-
-## 1. Where we are today
-
-### Architecture
-- Electron panel window (frameless, always-on-top, 48px, bottom edge), `main.js`.
-- Window discovery via AppleScript (`lib/applescript.js`): one big `System Events` scan
-  plus per-app scripting for Terminal and browser-style apps (one button per OS window).
-- Main-process scheduler polls every 1.6–4s, pushes snapshots to the renderer over IPC.
-- Renderer (`renderer/app.js`) does incremental DOM reconciliation, app icons, right-click
-  menu (bring to front / minimize / close), start menu, quick launch, tray buttons, clock.
-
-### The core problem
-XFCE's taskbar is **event-driven**: X11/EWMH delivers window open/close/focus/title events
-instantly and for free. LinBar instead **polls AppleScript**, and measured logs show
-`System Events` scans taking **6–19 seconds** under load. No amount of caching or
-scheduling fixes that ceiling — polling osascript can never feel like XFCE.
-
-### Uncommitted work in progress
-- `lib/lsappinfo.js` (new): fast app discovery via `lsappinfo` (~20ms vs ~600ms+ per
-  osascript call) for the visible-app list and frontmost app.
-- `lib/applescript.js`: osascript timeout (default 10s, kills hung scripts) and a queue
-  that serializes `System Events` scripts — concurrent SE scripts are what stacked up
-  to the 19s scans.
-- These need to be wired in (replace `getRunningApplicationProcessNames` /
-  `getFrontmostProcessName` with the lsappinfo versions) and committed.
-
-## 2. Strategy
-
-Two tracks:
-
-- **Track A — squeeze the current stack** (days): wire in `lsappinfo`, cut osascript
-  count, make the UI feel instant with optimistic updates. Gets refresh latency from
-  "seconds, sometimes frozen" to "sub-second, reliable".
-- **Track B — native event-driven helper** (the real fix, ~1–2 weeks): a small Swift
-  helper streaming window events. This is what makes LinBar actually XFCE-smooth.
-  Everything in Track A remains useful as a fallback path.
+- **User-controlled pins:** nothing is pre-pinned anymore. Pins persist in config and can
+  be toggled from right-click menus.
+- **Volume wheel sensitivity:** scrolling the speaker icon accumulates ticks locally and
+  updates instantly (5% per notch), debouncing only the slow `setVolume` call.
 
 ---
 
-## 3. Track A: make the current stack fast (Phase 1)
+## 1. Where we are today (2026-06-16 audit)
 
-1. **Wire in `lsappinfo`** (work already started):
-   - `getVisibleAppNames()` replaces the `System Events` "running processes" scan.
-   - `getFrontmostAppName()` replaces `getFrontmostProcessName()`.
-   - Effect: removes 2 of the 3+ SE scripts per refresh cycle.
-2. **One `System Events` script per refresh, serialized**: only the window-title scan
-   remains on SE; pass the lsappinfo app list into it so it never iterates background
-   processes. Keep the new timeout + serialization queue.
-3. **Decouple "frontmost" from "full list"**: poll frontmost (cheap, lsappinfo) every
-   ~500ms; full window list every ~3s or on demand. Active-button highlight then tracks
-   focus changes near-instantly even between full scans.
-4. **Optimistic UI**: when a task button is clicked, mark it active immediately in the
-   renderer and trigger a frontmost re-check; don't wait for the next full snapshot.
-5. **Commit** the outstanding hotfix work as 2–3 scoped commits (lsappinfo helper,
-   SE serialization/timeout, frontmost fast-path).
+### Architecture — **done, dual-backend**
 
-Acceptance: refresh `parts` timings consistently < 1s; active highlight follows
-Cmd+Tab within ~500ms; no scan ever blocks the UI for seconds.
+| Layer | Status | Notes |
+| --- | --- | --- |
+| Electron panel | ✅ | Frameless, always-on-top, 48px bar + 552px click-through popup zone |
+| Native helper (`helper/linbar-helper`) | ✅ primary | Swift, NDJSON over stdio, AXObserver + NSWorkspace, <100ms updates |
+| AppleScript fallback (`lib/applescript.js`) | ✅ fallback | Used when helper missing or Accessibility denied; still slow under load |
+| Fast frontmost poll (`lib/lsappinfo.js`) | ✅ | ~20ms; used on fallback path between full scans |
+| Config (`lib/config.js`) | ✅ | `~/.config/linbar/config.json` — pins, drawer view, login item, dock tile, onboarding |
+| Packaging (`electron-builder`) | ✅ basic | `npm run dist` / `dist:dir`; custom icon; helper asar-unpacked |
 
-## 4. Track B: native event-driven core (Phase 2) — the cornerstone
+### Features — **mostly Phase 3–4 complete**
 
-Build a small **Swift helper binary** (`helper/linbar-helper`), spawned by the Electron
-main process, that streams newline-delimited JSON events over stdout:
+| Feature | Status |
+| --- | --- |
+| One button per OS window | ✅ native path; AppleScript special-cases Terminal/browsers |
+| Stable button ordering (`taskOrderByKey`) | ✅ |
+| XFCE click semantics (active→minimize, middle-click close) | ✅ |
+| Minimized window styling | ✅ |
+| Optimistic active highlight on click | ✅ |
+| Right-click window menu (restore/minimize/close/pin) | ✅ |
+| Pinned launchers + config persistence | ✅ |
+| Searchable app drawer (categories, icons/list view, profile, power menu) | ✅ |
+| Clock + calendar popup | ✅ |
+| Volume (scroll, mute, slider popup) | ✅ |
+| Battery indicator + charging bolt | ✅ |
+| Clipboard history popup | ✅ (in-memory only) |
+| App icons from native helper | ✅ |
+| Launch at login | ✅ |
+| Single-instance lock | ✅ |
+| Menu-bar / tray icon to quit or open settings | ✅ |
+| LinBar settings / preferences UI | ✅ minimal v1 |
+| Installable `.app` + DMG workflow | ✅ basic |
+| Code signing / notarization | ❌ |
+| Custom app icon | ✅ |
+| First-run onboarding | ✅ |
+| Window grouping, urgency flash, drag-reorder | ❌ |
+| Autohide, multi-monitor, theming | ❌ |
+| Show-desktop button, network tray, Spaces pager | ❌ |
 
-- **Enumeration**: `CGWindowListCopyWindowInfo` — full window list (id, pid, title,
-  bounds, layer) in single-digit milliseconds, no AppleScript at all.
-- **Events instead of polling**:
-  - `NSWorkspace` notifications: app launched / terminated / activated (free, no perms).
-  - `AXObserver` per app: window created / destroyed / focused / title changed /
-    miniaturized (needs the Accessibility permission LinBar already requests).
-- **Actions** (JSON commands on stdin): raise, minimize, close a window via
-  `AXUIElement` — replaces all activation AppleScript, works uniformly for every app
-  (no more special-casing Terminal/browsers, since AX windows are real OS windows —
-  the whole tabs-vs-windows problem disappears).
-- **Permissions**: Accessibility (already required today); window titles via CGWindowList
-  additionally want Screen Recording on newer macOS — fall back to AX titles if denied.
+### Installability — **current gap**
 
-Electron side: replace the scheduler's snapshot polling with the helper's event stream;
-keep the AppleScript path only as a fallback when the helper is missing or perms denied.
+Running from source (`npm start`) works but is developer-only. A prior `npm run pack` produced
+`dist/mac/LinBar.app` (unpacked bundle, no DMG). To use it like a normal app today you would
+manually drag `LinBar.app` into `/Applications` — but there is no documented flow, no custom
+icon, no login-item support, and Gatekeeper will warn on unsigned builds.
 
-Acceptance: window open/close/focus reflected on the bar in **< 100ms**, idle CPU near
-zero (no periodic scans at all).
+**What "installable" should mean:**
 
-## 5. Phase 3: XFCE window-button parity
+1. `npm run dist` produces `dist/LinBar-x.y.z.dmg` (or `.zip`).
+2. User drags LinBar to `/Applications` (or an optional install script).
+3. LinBar appears in **Launchpad**, **Spotlight**, and **Applications** like any other app.
+4. First launch from `/Applications` prompts for **Accessibility** on `LinBar.app` (not the
+   terminal) — document this clearly.
+5. Optional: "Open at login" toggle (via `app.setLoginItemSettings`).
+6. Optional later: Homebrew cask for one-command install.
 
-With cheap, correct window data, implement classic XFCE taskbar behavior:
+### Settings — **current gap**
 
-- **Click semantics**: click focuses; **click the active button again → minimize**
-  (signature XFCE behavior); **middle-click → close** (make it configurable).
-- **Minimized state**: show minimized windows with a dimmed/italic style (XFCE shows
-  them in brackets); clicking restores.
-- **Urgency / attention**: flash a button when its app bounces in the Dock /
-  requests attention (`NSWorkspace` + AX notifications).
-- **Grouping option**: settings toggle — never group (current), group per app with a
-  popup window list, or group when the bar is full.
-- **Drag-to-reorder** buttons; remember order per app.
-- **Hover tooltips with live previews**: window thumbnail via ScreenCaptureKit
-  (graceful fallback to title-only tooltip without the permission).
-- **Window list sorting**: stable insertion order (XFCE default), not alphabetical churn.
+Config exists but is invisible to the user except for pins (right-click) and drawer view
+(icon/list toggle, persisted). There is no "LinBar Settings" entry anywhere — the tray
+"settings" action opens **macOS System Settings**, not LinBar preferences.
 
-## 6. Phase 4: panel features
+---
 
-- **Pinned launchers**: pin any running app from the right-click menu; pinned apps show
-  as launcher buttons when not running (XFCE "Launcher" plugin behavior). Persist in a
-  JSON config (`~/.config/linbar/config.json`).
-- **Show-desktop button** at the far right (AX-minimize all / Mission Control F11 key event).
-- **Clock → calendar popup** on click (Orage-style month view).
-- **Volume**: scroll on the tray icon to change volume, click for mute, slider popup.
-- **Battery / network indicators** (read via `pmset -g batt` and `scutil`/`networksetup`).
-- **Workspaces (Spaces) pager** — *stretch goal*: macOS has no public API; options are
-  skip it, integrate with yabai if installed, or use private CGS calls (fragile). Ship
-  current-Space awareness first (helper can detect Space changes via
-  `NSWorkspace.activeSpaceDidChangeNotification`).
-- **Panel options**: autohide (slide down, reveal on edge hover), opacity, height,
-  top/bottom position, per-display panels (multi-monitor).
-- **Settings UI**: small preferences window writing the JSON config; live-applies.
+## 2. Next priority: installable app (Phase 6)
 
-## 7. Phase 5: look, feel, and shipping polish
+Make LinBar behave like a shipped macOS utility before adding more panel features.
 
-- **Theming**: XFCE-accurate default theme (Greybird-like), plus Mint-Y and a native
-  macOS vibrancy theme; CSS variables, theme switch in settings.
-- **Animations**: 120ms ease-out for button add/remove/active-state; no layout jank
-  (buttons already equal-width — keep `min-width` collapse for crowded bars).
-- **Dock coexistence**: document/automate `defaults write com.apple.dock autohide`
-  prompt on first run (macOS can't reserve screen space for third-party panels).
-- **App lifecycle**: launch at login (`app.setLoginItemSettings`), single-instance lock,
-  menu-bar item to quit/show settings (since the panel has no window chrome).
-- **Packaging**: sign + notarize the helper and app (hardened runtime), dmg via
-  electron-builder; helper bundled in `Resources`.
-- **Diagnostics**: keep `LINBAR_DEBUG_TASKS=1`; add a status row in settings showing
-  permission states (Accessibility / Screen Recording / Automation) with deep links.
+### 6.1 Packaging & distribution
 
-## 8. Suggested commit sequence
+1. **Build scripts**
+   - Add `"dist": "electron-builder"` (and optionally `"dist:dir": "electron-builder --dir"`).
+   - Keep `"pack"` as alias for unpacked dev testing.
+2. **App icon**
+   - Add `build/icon.icns` (512×512 source PNG → `.icns`).
+   - Set `build.mac.icon` in `package.json`.
+3. **Bundle metadata**
+   - `productName`, `appId` (`com.linbar.app`) — already set.
+   - Consider `LSUIElement: true` in `Info.plist` extras — hides Dock icon since LinBar
+     *is* the bar; pair with a menu-bar icon so users can quit. Decide early; XFCE panels
+     don't have a Dock tile either.
+4. **Helper in packaged builds**
+   - `asarUnpack` for `helper/linbar-helper` — already correct; verify after every dist build.
+5. **Install instructions** (README)
+   - Build → open DMG → drag to Applications → grant Accessibility → optionally enable
+     login item + hide Dock.
+6. **Signing / notarization** (when distributing beyond yourself)
+   - Apple Developer ID, hardened runtime, staple notarization ticket.
+   - Sign the embedded helper binary too.
+   - Until signed: document right-click → Open for first launch.
 
-1. `perf:` wire lsappinfo into app discovery + frontmost detection
-2. `perf:` serialize System Events scripts and add osascript timeouts (already coded)
-3. `perf:` split fast frontmost poll from full window scan
-4. `feat:` optimistic active state on click
-5. `feat:` Swift helper — enumeration + actions (CGWindowList + AX)
-6. `feat:` Swift helper — event stream (NSWorkspace + AXObserver), drop polling
-7. `feat:` XFCE click semantics (minimize on active click, middle-click close)
-8. `feat:` minimized styling + urgency flash
-9. `feat:` pinned launchers + config file
-10. `feat:` calendar popup, volume slider, battery/network tray
-11. `feat:` autohide, multi-monitor, settings UI
-12. `style:` Greybird theme + animations
-13. `chore:` packaging, signing, login item
+### 6.2 App lifecycle (required for a good installed experience)
 
-## 9. Risks
+1. **Single-instance lock** — `app.requestSingleInstanceLock()`. Second launch focuses the
+   existing panel instead of spawning a duplicate bar.
+2. **Launch at login** — `app.setLoginItemSettings({ openAtLogin })` backed by config.
+3. **Quit / relaunch surface** — since the panel has no title bar:
+   - macOS app menu: add **Preferences…**, **Quit LinBar** (currently only Quit).
+   - Menu-bar status item (recommended): LinBar icon → Preferences, Launch at Login ✓,
+     Quit. This is how most "always-on" Mac utilities work.
+4. **First-run onboarding** (small modal or popup above the bar):
+   - Grant Accessibility (deep link to System Settings).
+   - Optional: "Hide the Dock?" with one-click `defaults write com.apple.dock autohide -bool true`.
+   - Optional: "Start LinBar at login?" toggle.
+
+### Acceptance
+
+- `npm run dist` produces a DMG; drag-install to `/Applications` works.
+- Launching from Applications shows the bar within 2s; helper connects; no terminal needed.
+- Only one instance runs; login item toggle persists across restarts.
+- User can quit without Force Quit.
+
+---
+
+## 3. Next priority: settings & preferences (Phase 7)
+
+Start with a **small, useful v1** — not a full XFCE panel-properties clone. Extend
+`lib/config.js` schema; all new keys get defaults so old configs keep working.
+
+### 3.1 Settings UI — where to put it (pick one for v1)
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| **A. macOS app menu → Preferences…** | Standard, zero bar clutter | Separate window |
+| **B. Menu-bar icon → Preferences** | Always reachable | Extra UI to build |
+| **C. App drawer → Settings entry** | Matches Linux "Settings" in menu | Hidden inside drawer |
+| **D. Right-click empty bar area** | Fast for power users | Undiscoverable |
+
+**Recommendation:** A + B together — app menu for discoverability, menu-bar icon for
+day-to-day control (quit, login item, preferences).
+
+Implementation: a small `BrowserWindow` (400×500, non-resizable) loading
+`renderer/settings.html` + `renderer/settings.js`. IPC: `config:get`, `config:set`,
+`config:reset`. Changes apply live via existing `loadConfig()` call sites + a
+`config:changed` broadcast to the panel renderer.
+
+### 3.2 Settings v1 — concrete keys worth adding now
+
+These map directly to behavior that already exists (hardcoded or env-var-only):
+
+| Key | Type | Default | Why now |
+| --- | --- | --- | --- |
+| `launchAtLogin` | bool | `false` | Installable-app must-have |
+| `hideDockIcon` | bool | `true` | Panel apps shouldn't duplicate Dock presence |
+| `drawerView` | `"icons"`\|`"list"` | `"icons"` | Already persisted; expose in UI |
+| `showBattery` | bool | `true` | Tray widget toggle |
+| `showVolume` | bool | `true` | Tray widget toggle |
+| `showClipboard` | bool | `true` | Tray widget toggle |
+| `clickActiveMinimizes` | bool | `true` | XFCE signature; some users hate it |
+| `middleClickCloses` | bool | `true` | Same |
+| `volumeScrollStep` | number | `5` | Currently hardcoded 5% per notch |
+| `onboardingComplete` | bool | `false` | First-run wizard state |
+
+### 3.3 Settings v2 — panel layout (after v1 ships)
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `panelHeight` | number | `48` | Requires CSS + window resize logic |
+| `panelPosition` | `"bottom"`\|`"top"` | `"bottom"` | Flip anchor in `positionPanelWindow` |
+| `panelOpacity` | number | `1.0` | CSS `--panel-opacity` |
+| `autohide` | bool | `false` | Slide off-screen; reveal on edge hover |
+| `autohideDelayMs` | number | `300` | |
+| `theme` | string | `"greybird"` | Needs theme system first |
+| `windowGrouping` | `"never"`\|`"always"`\|`"when-full"` | `"never"` | Major task-list change |
+| `currentSpaceOnly` | bool | `false` | Maps to existing env var behavior |
+| `clipboardHistorySize` | number | `20` | Currently unbounded in memory |
+| `showDesktopButton` | bool | `false` | When show-desktop feature exists |
+
+### 3.4 Settings v3 — diagnostics & advanced
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `backend` | `"auto"`\|`"native"`\|`"applescript"` | Maps to `LINBAR_FORCE_APPLESCRIPT` |
+| `debugTasks` | bool | Maps to `LINBAR_DEBUG_TASKS` (dev only?) |
+| Permission status rows | read-only | Accessibility, Automation, Screen Recording — deep links |
+| `configPath` | read-only | Show `~/.config/linbar/config.json` + Reveal in Finder |
+| Export / import config | action | For backup or sharing dotfiles |
+
+### 3.5 Not settings (keep out of v1)
+
+- Per-app pin order (drag-reorder pins) — separate UX, not a toggle.
+- Network indicator — feature doesn't exist yet.
+- Spaces pager — no API; don't expose a broken toggle.
+- Individual app exclusions — powerful but complex; defer.
+
+---
+
+## 4. Completed work (historical — Tracks A & B, Phases 3–5 partial)
+
+<details>
+<summary>Track A — AppleScript performance (done)</summary>
+
+- `lsappinfo` wired for frontmost detection
+- System Events serialization + osascript timeouts
+- Fast frontmost poll decoupled from full window scan
+- Optimistic UI on click
+- Task-list caching, stale snapshot fallback, incremental DOM reconciliation
+
+</details>
+
+<details>
+<summary>Track B — native helper (done)</summary>
+
+- `helper/main.swift` compiled on `npm install`
+- NDJSON event stream; raise/minimize/close via AX
+- Hot-swap to AppleScript fallback on helper exit or missing binary
+- Real app icons via `NSWorkspace.icon(forFile:)`
+
+</details>
+
+<details>
+<summary>Phase 3 — XFCE window buttons (partial)</summary>
+
+- ✅ Click/minimize/middle-close, minimized styling, stable order, optimistic highlight
+- ❌ Urgency flash, grouping, drag-reorder, hover previews
+
+</details>
+
+<details>
+<summary>Phase 4 — panel features (partial)</summary>
+
+- ✅ Pins, calendar, volume, battery, clipboard, app drawer
+- ❌ Show-desktop, network, Spaces pager, autohide, settings UI
+
+</details>
+
+---
+
+## 5. Future work (after install + settings)
+
+### Phase 8 — remaining XFCE parity
+
+- Urgency / attention flash on Dock bounce
+- Window grouping (never / per-app / when-full)
+- Drag-to-reorder task buttons; persist order in config
+- Hover tooltips with ScreenCaptureKit thumbnails (fallback to title)
+- Show-desktop button
+
+### Phase 9 — panel layout & polish
+
+- Autohide (slide down, edge reveal)
+- Top/bottom position, height, opacity
+- Multi-monitor: panel per display or follow primary
+- Greybird / Mint-Y / native vibrancy themes
+- Spaces: current-Space awareness via helper; pager as stretch goal
+
+### Phase 10 — distribution hardening
+
+- Universal binary helper (`arm64` + `x86_64`)
+- CI build + signed/notarized DMG
+- Homebrew cask (`brew install --cask linbar`)
+- Auto-update (electron-updater) — only if distributing publicly
+
+---
+
+## 6. Suggested commit sequence (from here)
+
+**Installable app (do first):**
+
+1. `chore:` add app icon asset and `npm run dist` script
+2. `feat:` single-instance lock and improved app menu (Preferences placeholder, Quit)
+3. `feat:` menu-bar status item with quit and launch-at-login toggle
+4. `feat:` first-run onboarding (Accessibility prompt, optional Dock hide)
+5. `docs:` install-from-DMG instructions and permission guide for packaged app
+
+**Settings v1 (do second):**
+
+6. `feat:` extend config schema with v1 settings keys + validation
+7. `feat:` preferences window (IPC + live apply for tray toggles and click behavior)
+8. `feat:` wire launch-at-login and onboarding flags to config
+9. `feat:` diagnostics section in preferences (permission status, config path)
+
+**Then resume feature work:**
+
+10. `feat:` urgency flash on attention requests
+11. `feat:` window grouping option
+12. `feat:` autohide + panel position/height settings (needs v2 config keys)
+13. `style:` Greybird theme + CSS variable theming
+14. `chore:` code signing, notarization, Homebrew cask
+
+---
+
+## 7. Risks
 
 | Risk | Mitigation |
 | --- | --- |
-| Screen Recording permission for CGWindowList titles | Fall back to AX titles; clearly guide the user |
-| AXObserver quirks for some apps (Electron apps, Java) | Keep periodic cheap reconciliation scan (e.g. every 30s) as safety net |
-| Spaces have no public API | Ship without pager; current-Space detection only |
-| Helper adds a build toolchain (Xcode CLT) | Prebuild universal binary, commit it or fetch on `npm install` |
-| macOS can't reserve panel space | Dock autohide guidance; accept overlay model |
+| Accessibility prompt differs for packaged vs dev build | First-run onboarding; README callout; bundle ID stable (`com.linbar.app`) |
+| Unsigned builds blocked by Gatekeeper | Document right-click Open; sign when distributing |
+| Helper missing in packaged app | CI check: assert `app.asar.unpacked/helper/linbar-helper` exists post-build |
+| `LSUIElement` hides Dock icon — user can't find app | Menu-bar icon + app menu Quit; don't enable until menu-bar exists |
+| Settings scope creep | Ship v1 with ~10 toggles; defer layout/theme to v2 |
+| Screen Recording for window titles | Fall back to AX titles; show status in diagnostics |
+| macOS can't reserve panel space | Dock autohide prompt; accept overlay model |
+| Spaces have no public API | Ship without pager; optional yabai integration later |

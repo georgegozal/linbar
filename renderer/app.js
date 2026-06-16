@@ -50,7 +50,7 @@
   document.addEventListener("mousemove", (e) => {
     const over =
       e.target && e.target.closest
-        ? e.target.closest(".panel-wrap, .start-menu, .calendar-pop, .vol-pop, .clip-pop")
+        ? e.target.closest(".panel-wrap, .start-menu, .calendar-pop, .vol-pop, .clip-pop, .onboard-pop")
         : null;
     setMouseIgnore(!over);
   });
@@ -733,4 +733,47 @@
   syncBattery();
   setInterval(syncBattery, 15_000);
   trayBatt.addEventListener("click", () => tb.openBatterySettings());
+
+  // --- First-run onboarding ---
+  const onboardPop = document.getElementById("onboardPop");
+  const onboardAccessibility = document.getElementById("onboardAccessibility");
+  const onboardHideDock = document.getElementById("onboardHideDock");
+  const onboardLogin = document.getElementById("onboardLogin");
+  const onboardDone = document.getElementById("onboardDone");
+
+  function setOnboardingOpen(open) {
+    if (!onboardPop) return;
+    onboardPop.hidden = !open;
+    if (open) {
+      calendarPop.hidden = true;
+      volPop.hidden = true;
+      clipPop.hidden = true;
+      startMenu.hidden = true;
+    }
+  }
+
+  if (onboardPop) {
+    onboardPop.addEventListener("click", (e) => e.stopPropagation());
+    onboardAccessibility.addEventListener("click", () => tb.openAccessibilitySettings());
+    onboardHideDock.addEventListener("click", () => {
+      void tb.hideDock();
+    });
+    onboardDone.addEventListener("click", () => {
+      void tb.setConfig({
+        launchAtLogin: onboardLogin.checked,
+        hideDockIcon: true,
+        onboardingComplete: true,
+      }).then(() => setOnboardingOpen(false));
+    });
+    if (typeof tb.onOnboarding === "function") {
+      tb.onOnboarding((payload) => {
+        if (payload && payload.show) {
+          void tb.getConfig().then((cfg) => {
+            onboardLogin.checked = Boolean(cfg.launchAtLogin);
+            setOnboardingOpen(true);
+          });
+        }
+      });
+    }
+  }
 })();

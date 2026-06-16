@@ -75,6 +75,24 @@
     <div class="cal-grid" id="calGrid"></div>
   </div>
 
+  <div class="onboard-pop" id="onboardPop" hidden>
+    <div class="onboard-title">Welcome to LinBar</div>
+    <p class="onboard-lead">A Linux-style taskbar for macOS. Two quick setup steps:</p>
+    <ol class="onboard-steps">
+      <li>Grant <strong>Accessibility</strong> so LinBar can list and focus windows.</li>
+      <li>Optionally hide the Dock for the full panel experience.</li>
+    </ol>
+    <div class="onboard-actions">
+      <button type="button" class="onboard-btn primary" id="onboardAccessibility">Open Accessibility Settings</button>
+      <button type="button" class="onboard-btn" id="onboardHideDock">Hide the Dock</button>
+    </div>
+    <label class="onboard-check">
+      <input type="checkbox" id="onboardLogin" />
+      Open LinBar at login
+    </label>
+    <button type="button" class="onboard-btn primary wide" id="onboardDone">Get started</button>
+  </div>
+
   <div class="panel-wrap">
     <div class="panel" role="toolbar" aria-label="LinBar taskbar">
       <div class="panel-left">
