@@ -6,6 +6,20 @@ with calendar — while staying a native-feeling macOS utility.
 
 ## 0. Changelog
 
+### 2026-06-16 — packaged app icons & permissions
+
+Installed **LinBar.app** from `/Applications` needs **Accessibility granted to LinBar**
+(not Terminal/Electron). Without it: no window buttons, broken minimize/show-desktop,
+gray drawer icons.
+
+- **Helper kept alive without AX** — still serves `icon` / `categories` over stdio;
+  window tracking falls back to AppleScript until Accessibility is granted and LinBar
+  is restarted.
+- **Packaged helper path** — `lib/helper.js` resolves
+  `process.resourcesPath/app.asar.unpacked/helper/linbar-helper` when `app.isPackaged`.
+- **Icon fallback** — `bundleIconPath()` reads `.icns` from the app bundle when the
+  helper or `getFileIcon` is insufficient.
+
 ### 2026-06-16 — clock preferences & show desktop
 
 - **Show desktop:** button after the clock minimizes all open windows (native helper

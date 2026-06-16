@@ -58,7 +58,9 @@ npm run dist:dir      # creates dist/mac/LinBar.app
 
 **Unsigned builds:** macOS may block the first launch. Right-click LinBar → **Open**, or allow it in **System Settings → Privacy & Security**.
 
-**Permissions when installed:** Accessibility applies to `LinBar.app` (not your terminal). If the task list stays empty after granting access, quit and reopen LinBar once.
+**Permissions when installed:** Accessibility applies to **LinBar** in System Settings (not Terminal or Electron). Without it, window buttons, minimize/show-desktop, and Brave/Chrome tabs will not work reliably. Quit and reopen LinBar after granting access.
+
+If the app drawer shows gray placeholders instead of real icons, quit LinBar fully and reopen it once Accessibility is granted.
 
 ## Features
 
@@ -90,6 +92,7 @@ npm run dist:dir      # creates dist/mac/LinBar.app
 
 ## Tips
 
+- **Installed from Applications:** enable **LinBar** under System Settings → Privacy & Security → **Accessibility** (not Terminal). Restart LinBar after granting. Without this, the taskbar won't list windows (e.g. Brave), minimize/show-desktop won't work, and drawer icons may stay gray.
 - Hide the stock Dock for the full Linux-panel feel (onboarding offers a one-click
   option, or **System Settings → Desktop & Dock → automatically hide**).
 - With **Reserve space for the taskbar** enabled (Preferences), tiled windows shrink

@@ -291,12 +291,10 @@ function startBackend() {
           applyScreenReserve();
           console.log("[LinBar] native helper active (event-driven backend)");
         } else {
+          nativeMode = false;
           console.warn(
-            "[LinBar] Accessibility permission missing — grant it in System Settings → Privacy & Security → Accessibility, then restart LinBar. Using AppleScript fallback.",
+            "[LinBar] Accessibility permission missing — grant LinBar in System Settings → Privacy & Security → Accessibility, then restart. Window tracking uses AppleScript fallback; icons still use the native helper.",
           );
-          const t = nativeTracker;
-          nativeTracker = null;
-          if (t) t.kill();
           startAppleScriptScheduler();
         }
       },
@@ -811,6 +809,22 @@ function mdfindAppPath(appName) {
   });
 }
 
+/** Read CFBundleIconFile from an .app bundle and return the .icns path if present. */
+function bundleIconPath(appBundlePath) {
+  const plistPath = path.join(appBundlePath, "Contents", "Info.plist");
+  try {
+    const xml = fs.readFileSync(plistPath, "utf8");
+    const m = xml.match(/<key>CFBundleIconFile<\/key>\s*<string>([^<]+)<\/string>/);
+    if (!m) return null;
+    let name = m[1].trim();
+    if (!name.endsWith(".icns")) name += ".icns";
+    const icns = path.join(appBundlePath, "Contents", "Resources", name);
+    return fs.existsSync(icns) ? icns : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Resolve a real icon for an app bundle. Prefers the native helper
  * (NSWorkspace gives the true bundle icon); Electron's getFileIcon only
@@ -820,6 +834,15 @@ async function iconForBundlePath(bundlePath) {
   if (nativeTracker) {
     const fromHelper = await nativeTracker.getIcon(bundlePath);
     if (fromHelper) return fromHelper;
+  }
+  const icns = bundleIconPath(bundlePath);
+  if (icns) {
+    try {
+      const img = nativeImage.createFromPath(icns);
+      if (!img.isEmpty()) return img.toDataURL();
+    } catch {
+      /* fall through */
+    }
   }
   try {
     const img = await app.getFileIcon(bundlePath, { size: "normal" });
