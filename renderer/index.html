@@ -145,9 +145,9 @@
           </svg>
         </button>
 
-        <div class="clock" id="clock" title="Clock">
+        <div class="clock clock--time-only" id="clock" title="Clock">
           <span class="clock-time" id="clockTime">00:00</span>
-          <span class="clock-date" id="clockDate">—</span>
+          <span class="clock-date" id="clockDate" hidden></span>
         </div>
         <button type="button" class="tray-btn show-desktop-btn" id="showDesktopBtn" title="Show desktop (minimize all windows)" aria-label="Show desktop">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -159,6 +159,7 @@
     </div>
   </div>
 
+  <script src="clock-format.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

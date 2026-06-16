@@ -6,6 +6,16 @@ with calendar — while staying a native-feeling macOS utility.
 
 ## 0. Changelog
 
+### 2026-06-16 — clock preferences & show desktop
+
+- **Show desktop:** button after the clock minimizes all open windows (native helper
+  `minimizeAll` or AppleScript fallback); task buttons stay on the bar, dimmed.
+- **Clock defaults:** time only on the bar (date hidden); 24-hour format.
+- **Preferences → Clock:** show date, 12/24-hour time, date format presets (month-first,
+  day-first DMY, ISO). Live preview; changes apply immediately via `taskbar:configUpdated`.
+- **Shared formatter:** `renderer/clock-format.js` used by the panel and preferences window.
+- **Config keys added:** `clockShowDate`, `clockHour12`, `clockDateFormat`.
+
 ### 2026-06-16 — Dock-like screen space reservation
 
 macOS has no public API for third-party panels to shrink `NSScreen.visibleFrame` the way
@@ -85,7 +95,7 @@ and **add a settings surface** before piling on more panel features.
 | Right-click window menu (restore/minimize/close/pin) | ✅ |
 | Pinned launchers + config persistence | ✅ |
 | Searchable app drawer (categories, icons/list view, profile, power menu) | ✅ |
-| Clock + calendar popup | ✅ |
+| Clock + calendar popup | ✅ configurable in Preferences (time/date format) |
 | Volume (scroll, mute, slider popup) | ✅ |
 | Battery indicator + charging bolt | ✅ |
 | Clipboard history popup | ✅ (in-memory only) |
@@ -93,15 +103,16 @@ and **add a settings surface** before piling on more panel features.
 | Launch at login | ✅ |
 | Single-instance lock | ✅ |
 | Menu-bar / tray icon to quit or open settings | ✅ |
-| LinBar settings / preferences UI | ✅ minimal v1 |
+| LinBar settings / preferences UI | ✅ v1 — general, clock, permissions |
 | Installable `.app` + DMG workflow | ✅ basic |
 | Code signing / notarization | ❌ |
 | Custom app icon | ✅ |
 | First-run onboarding | ✅ |
 | Dock-like bottom space reservation | ✅ native helper; `reserveScreenSpace` config |
 | Window grouping, urgency flash, drag-reorder | ❌ |
+| Network tray, Spaces pager | ❌ |
 | Autohide, multi-monitor, theming | ❌ |
-| Show-desktop button, network tray, Spaces pager | ❌ |
+| Show-desktop button (minimize all) | ✅ after clock |
 
 ### Installability — **Phase 6 basics shipped**
 
@@ -123,11 +134,11 @@ not modify `NSScreen.visibleFrame` itself — it adjusts individual window frame
 5. Optional: "Open at login" toggle (via `app.setLoginItemSettings`).
 6. Optional later: Homebrew cask for one-command install.
 
-### Settings — **current gap**
+### Settings — **v1 shipped; clock added**
 
-Config exists but is invisible to the user except for pins (right-click) and drawer view
-(icon/list toggle, persisted). There is no "LinBar Settings" entry anywhere — the tray
-"settings" action opens **macOS System Settings**, not LinBar preferences.
+Preferences (`renderer/settings.html`) covers login item, Dock tile, screen reservation,
+and **clock** (show date, 12/24-hour, date format with month-first / day-first presets).
+Changes broadcast to the panel via `taskbar:configUpdated`.
 
 ---
 
@@ -220,6 +231,9 @@ These map directly to behavior that already exists (hardcoded or env-var-only):
 | `volumeScrollStep` | number | `5` | Currently hardcoded 5% per notch |
 | `onboardingComplete` | bool | `false` | First-run wizard state |
 | `reserveScreenSpace` | bool | `true` | ✅ Shipped — native helper bottom inset |
+| `clockShowDate` | bool | `false` | ✅ Shipped — date line under time on bar |
+| `clockHour12` | bool | `false` | ✅ Shipped — `false` = 24h, `true` = 12h |
+| `clockDateFormat` | string | `"long"` | ✅ Shipped — see `CLOCK_DATE_FORMATS` in `lib/config.js` |
 
 ### 3.3 Settings v2 — panel layout (after v1 ships)
 
@@ -234,7 +248,7 @@ These map directly to behavior that already exists (hardcoded or env-var-only):
 | `windowGrouping` | `"never"`\|`"always"`\|`"when-full"` | `"never"` | Major task-list change |
 | `currentSpaceOnly` | bool | `false` | Maps to existing env var behavior |
 | `clipboardHistorySize` | number | `20` | Currently unbounded in memory |
-| `showDesktopButton` | bool | `false` | When show-desktop feature exists |
+| `showDesktopButton` | bool | `true` | ✅ Shipped (always on bar); no toggle yet |
 
 ### 3.4 Settings v3 — diagnostics & advanced
 

@@ -74,7 +74,10 @@ npm run dist:dir      # creates dist/mac/LinBar.app
   taskbar (no gap, no overlap). Toggle in **Preferences → Reserve space for the
   taskbar** (`reserveScreenSpace`, on by default).
 - **Start menu** with common apps and folders.
-- **Clock with calendar popup** (click the clock).
+- **Clock with calendar popup** (click the clock). Default is **time only** (24-hour).
+  **LinBar → Preferences → Clock** — show date, 12/24-hour, date format (month-first,
+  day-first, ISO).
+- **Show desktop** — button after the clock; minimizes all open windows (XFCE-style).
 - Tray: About This Mac, notification settings, **clipboard preview**, and a
   **volume** control (click to mute, scroll to adjust).
 

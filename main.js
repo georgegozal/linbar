@@ -73,7 +73,7 @@ const {
 } = require("./lib/applescript");
 const { getFrontmostAppName } = require("./lib/lsappinfo");
 const { startNativeTracker } = require("./lib/helper");
-const { loadConfig, saveConfig, CONFIG_PATH } = require("./lib/config");
+const { loadConfig, saveConfig, CONFIG_PATH, CLOCK_DATE_FORMATS } = require("./lib/config");
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
@@ -460,7 +460,7 @@ function openSettingsWindow() {
   }
   settingsWindow = new BrowserWindow({
     width: 440,
-    height: 340,
+    height: 500,
     resizable: false,
     minimizable: true,
     maximizable: false,
@@ -763,6 +763,11 @@ ipcMain.handle("config:set", (_e, partial) => {
   if (typeof partial.hideDockIcon === "boolean") next.hideDockIcon = partial.hideDockIcon;
   if (typeof partial.onboardingComplete === "boolean") next.onboardingComplete = partial.onboardingComplete;
   if (typeof partial.reserveScreenSpace === "boolean") next.reserveScreenSpace = partial.reserveScreenSpace;
+  if (typeof partial.clockShowDate === "boolean") next.clockShowDate = partial.clockShowDate;
+  if (typeof partial.clockHour12 === "boolean") next.clockHour12 = partial.clockHour12;
+  if (typeof partial.clockDateFormat === "string" && CLOCK_DATE_FORMATS.has(partial.clockDateFormat)) {
+    next.clockDateFormat = partial.clockDateFormat;
+  }
   const cfg = saveConfig(next);
   applyLifecycleFromConfig();
   applyScreenReserve();

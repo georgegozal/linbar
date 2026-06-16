@@ -50,7 +50,7 @@ XFCE keeps each window in its slot for its lifetime. `taskOrderByKey` (main.js) 
 
 ### Renderer
 
-`renderer/app.js` is a single IIFE (no framework). It does **incremental DOM reconciliation** against the task payload (reuses buttons by `key`), lazy-loads/caches app icons via `icon:get`, and supports **optimistic active state** (`setOptimisticActive`) so a clicked button highlights instantly. The panel window is `WINDOW_HEIGHT` (600px) tall but only the bottom `PANEL_HEIGHT` (48px) is the bar; the rest is transparent and **click-through**. `setIgnoreMouseEvents(true, { forward: true })` starts click-through and the renderer toggles it via `panel:setMouseIgnore` based on cursor position so clicks pass through the empty area but popups stay interactive.
+`renderer/app.js` is a single IIFE (no framework). It does **incremental DOM reconciliation** against the task payload (reuses buttons by `key`), lazy-loads/caches app icons via `icon:get`, and supports **optimistic active state** (`setOptimisticActive`) so a clicked button highlights instantly. Clock display uses `renderer/clock-format.js` + config keys (`clockShowDate`, `clockHour12`, `clockDateFormat`); updates live on `taskbar:configUpdated`. The panel window is `WINDOW_HEIGHT` (600px) tall but only the bottom `PANEL_HEIGHT` (48px) is the bar; the rest is transparent and **click-through**. `setIgnoreMouseEvents(true, { forward: true })` starts click-through and the renderer toggles it via `panel:setMouseIgnore` based on cursor position so clicks pass through the empty area but popups stay interactive.
 
 ### Config & persistence
 
@@ -64,6 +64,9 @@ XFCE keeps each window in its slot for its lifetime. `taskOrderByKey` (main.js) 
 | `hideDockIcon` | Hide LinBar's Dock tile (`app.dock.hide()`); menu-bar icon remains |
 | `onboardingComplete` | First-run welcome popup shown once when `false` |
 | `reserveScreenSpace` | Native helper insets tiled windows by 48px at the bottom (Dock-like) |
+| `clockShowDate` | Show date under the time on the bar (default `false`) |
+| `clockHour12` | 12-hour clock when `true`; 24-hour when `false` (default) |
+| `clockDateFormat` | `long`, `medium`, `short`, `iso`, `weekdayDate`, or day-first `dmy*` variants — see `lib/config.js` |
 
 Pins are user-controlled — **nothing is pre-pinned by default**. Clipboard history is in-memory only, never persisted.
 
@@ -88,12 +91,13 @@ Toggle via `reserveScreenSpace` in config / Preferences. Rebuild helper after ed
 - **Single instance:** `app.requestSingleInstanceLock()` — second launch focuses the existing panel.
 - **Menu-bar tray:** `build/trayTemplate.png`, context menu with Preferences, Open at Login, Quit.
 - **App menu:** LinBar → Preferences… (⌘,), Quit (⌘Q).
-- **Preferences window:** `renderer/settings.html` + `settings-preload.js`; IPC `config:get` / `config:set`.
+- **Preferences window:** `renderer/settings.html` + `settings-preload.js`; IPC `config:get` / `config:set`. Clock section uses `renderer/clock-format.js` for live preview.
+- **Show desktop:** `desktop:minimizeAll` IPC; native helper `minimizeAll` command or AppleScript per-task fallback.
 - **First-run onboarding:** popup in `renderer/index.html`; IPC `taskbar:onboarding`, `config:set` on completion.
 
 ### Preferences & settings IPC
 
-Panel renderer (`preload.js` → `window.taskbar`): `getConfig`, `setConfig`, `openPreferences`, `openAccessibilitySettings`, `hideDock`, `onOnboarding`.
+Panel renderer (`preload.js` → `window.taskbar`): `getConfig`, `setConfig`, `onConfigUpdated`, `openPreferences`, `showDesktop`, `openAccessibilitySettings`, `hideDock`, `onOnboarding`.
 
 Settings window (`settings-preload.js` → `window.linbarSettings`): `getConfig`, `setConfig`, `openAccessibilitySettings`, `hideDock`.
 

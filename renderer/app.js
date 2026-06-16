@@ -10,26 +10,24 @@
   const taskList = document.getElementById("taskList");
   const trayVol = document.getElementById("trayVol");
 
-  function formatTime(d) {
-    const pad = (n) => String(n).padStart(2, "0");
-    return pad(d.getHours()) + ":" + pad(d.getMinutes());
-  }
-
-  function formatDate(d) {
-    return d.toLocaleDateString(undefined, {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  }
+  let clockCfg = { clockShowDate: false, clockHour12: false, clockDateFormat: "long" };
 
   function tickClock() {
-    const d = new Date();
-    document.getElementById("clockTime").textContent = formatTime(d);
-    document.getElementById("clockDate").textContent = formatDate(d);
+    if (window.LinbarClockFormat) window.LinbarClockFormat.applyClock(clockCfg);
   }
 
+  tb.getConfig()
+    .then((cfg) => {
+      clockCfg = cfg;
+      tickClock();
+    })
+    .catch(() => tickClock());
+  if (typeof tb.onConfigUpdated === "function") {
+    tb.onConfigUpdated((cfg) => {
+      clockCfg = cfg;
+      tickClock();
+    });
+  }
   tickClock();
   setInterval(tickClock, 1000);
 

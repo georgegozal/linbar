@@ -61,6 +61,12 @@ contextBridge.exposeInMainWorld("taskbar", {
   hideDock: () => ipcRenderer.invoke("sys:hideDock"),
   getConfig: () => ipcRenderer.invoke("config:get"),
   setConfig: (partial) => ipcRenderer.invoke("config:set", partial),
+  onConfigUpdated: (listener) => {
+    if (typeof listener !== "function") return () => {};
+    const handler = (_event, cfg) => listener(cfg);
+    ipcRenderer.on("taskbar:configUpdated", handler);
+    return () => ipcRenderer.removeListener("taskbar:configUpdated", handler);
+  },
   openPreferences: () => ipcRenderer.invoke("app:openPreferences"),
   onOnboarding: (listener) => {
     if (typeof listener !== "function") return () => {};
