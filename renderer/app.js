@@ -355,15 +355,32 @@
 
   // --- Pinned launchers (XFCE launcher items) ---
   const quickLaunch = document.getElementById("quickLaunch");
+  let pinOrder = [];
+  let pinDragFrom = null;
+  let pinDidDrag = false;
+
+  function reorderPinArray(order, fromApp, beforeApp) {
+    const fromIdx = order.indexOf(fromApp);
+    const toIdx = order.indexOf(beforeApp);
+    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return order;
+    const next = order.filter((p) => p !== fromApp);
+    const insertAt = next.indexOf(beforeApp);
+    if (insertAt === -1) return order;
+    next.splice(insertAt, 0, fromApp);
+    return next;
+  }
 
   function renderPins(pinned) {
     if (!quickLaunch) return;
+    pinOrder = [...(pinned || [])];
     quickLaunch.replaceChildren();
-    for (const appName of pinned || []) {
+    for (const appName of pinOrder) {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "icon-btn pin-btn";
-      b.title = appName;
+      b.draggable = true;
+      b.dataset.appName = appName;
+      b.title = appName + " — drag to reorder";
       b.setAttribute("aria-label", appName);
       const ico = document.createElement("span");
       ico.className = "ql-icon ql-app";
@@ -374,13 +391,70 @@
         ico.textContent = "";
         ico.style.backgroundImage = `url("${url}")`;
       }).catch(() => {});
-      b.addEventListener("click", () => tb.openApp(appName));
+      b.addEventListener("click", (e) => {
+        if (pinDidDrag) {
+          e.preventDefault();
+          return;
+        }
+        tb.openApp(appName);
+      });
       b.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         tb.contextMenuPin(appName);
       });
       quickLaunch.appendChild(b);
     }
+  }
+
+  if (quickLaunch) {
+    quickLaunch.addEventListener("dragstart", (e) => {
+      const btn = e.target.closest(".pin-btn");
+      if (!btn || !quickLaunch.contains(btn)) return;
+      pinDragFrom = btn.dataset.appName;
+      pinDidDrag = false;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", pinDragFrom);
+      btn.classList.add("pin-dragging");
+    });
+
+    quickLaunch.addEventListener("dragend", (e) => {
+      const btn = e.target.closest(".pin-btn");
+      if (btn) btn.classList.remove("pin-dragging");
+      quickLaunch.querySelectorAll(".pin-drop-target").forEach((el) => el.classList.remove("pin-drop-target"));
+      pinDragFrom = null;
+      setTimeout(() => {
+        pinDidDrag = false;
+      }, 0);
+    });
+
+    quickLaunch.addEventListener("dragover", (e) => {
+      if (!pinDragFrom) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const btn = e.target.closest(".pin-btn");
+      quickLaunch.querySelectorAll(".pin-drop-target").forEach((el) => el.classList.remove("pin-drop-target"));
+      if (btn && btn.dataset.appName !== pinDragFrom) btn.classList.add("pin-drop-target");
+    });
+
+    quickLaunch.addEventListener("dragleave", (e) => {
+      const btn = e.target.closest(".pin-btn");
+      if (btn) btn.classList.remove("pin-drop-target");
+    });
+
+    quickLaunch.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const from = e.dataTransfer.getData("text/plain") || pinDragFrom;
+      const btn = e.target.closest(".pin-btn");
+      if (!from || !btn) return;
+      const to = btn.dataset.appName;
+      if (from === to) return;
+      pinDidDrag = true;
+      const next = reorderPinArray(pinOrder, from, to);
+      if (next.join("\0") === pinOrder.join("\0")) return;
+      pinOrder = next;
+      renderPins(pinOrder);
+      void tb.setPinOrder(next);
+    });
   }
 
   tb.getPins().then(renderPins).catch(() => {});

@@ -1071,7 +1071,29 @@ function togglePin(appName) {
   broadcastPins();
 }
 
+function validatePinOrder(order, current) {
+  if (!Array.isArray(order) || order.length !== current.length) return null;
+  const want = new Set(current);
+  const seen = new Set();
+  const out = [];
+  for (const name of order) {
+    if (typeof name !== "string" || !name || !want.has(name) || seen.has(name)) return null;
+    seen.add(name);
+    out.push(name);
+  }
+  return out.length === current.length ? out : null;
+}
+
 ipcMain.handle("pins:list", () => loadConfig().pinned);
+
+ipcMain.handle("pins:setOrder", (_e, order) => {
+  const current = loadConfig().pinned;
+  const next = validatePinOrder(order, current);
+  if (!next) return { ok: false };
+  saveConfig({ pinned: next });
+  broadcastPins();
+  return { ok: true, pinned: next };
+});
 
 ipcMain.handle("pins:toggle", (_e, appName) => {
   if (!appName || typeof appName !== "string") return { ok: false };
