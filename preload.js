@@ -43,6 +43,8 @@ contextBridge.exposeInMainWorld("taskbar", {
   getVolume: () => ipcRenderer.invoke("audio:getVolume"),
   changeVolume: (delta) => ipcRenderer.invoke("audio:changeVolume", delta),
   setVolume: (level) => ipcRenderer.invoke("audio:setVolume", level),
+  getBrightness: () => ipcRenderer.invoke("display:getBrightness"),
+  setBrightness: (level) => ipcRenderer.invoke("display:setBrightness", level),
   getBattery: () => ipcRenderer.invoke("battery:get"),
   openBatterySettings: () => ipcRenderer.invoke("sys:batterySettings"),
   showDesktop: () => ipcRenderer.invoke("desktop:minimizeAll"),

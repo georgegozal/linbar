@@ -2,6 +2,7 @@ node_modules/
 dist/
 out/
 helper/linbar-helper
+helper/linbar-brightness
 .DS_Store
 *.log
 .env

@@ -73,6 +73,7 @@ const {
 } = require("./lib/applescript");
 const { getFrontmostAppName } = require("./lib/lsappinfo");
 const { startNativeTracker } = require("./lib/helper");
+const { getBrightness, setBrightness } = require("./lib/brightness");
 const { loadConfig, saveConfig, CONFIG_PATH, CLOCK_DATE_FORMATS } = require("./lib/config");
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -657,6 +658,22 @@ ipcMain.handle("audio:getVolume", async () => {
     return await getVolumeState();
   } catch {
     return { muted: false, level: 0 };
+  }
+});
+
+ipcMain.handle("display:getBrightness", async () => {
+  try {
+    return await getBrightness();
+  } catch (err) {
+    return { level: 0, error: String(err && err.message ? err.message : err) };
+  }
+});
+
+ipcMain.handle("display:setBrightness", async (_e, rawLevel) => {
+  try {
+    return await setBrightness(rawLevel);
+  } catch (err) {
+    return { level: 0, error: String(err && err.message ? err.message : err) };
   }
 });
 

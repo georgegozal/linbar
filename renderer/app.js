@@ -787,6 +787,18 @@
   // --- Battery indicator (hidden on machines without one) ---
   const trayBatt = document.getElementById("trayBatt");
   const battPct = document.getElementById("battPct");
+  let lastBatteryTitle = "Battery";
+
+  function applyBatteryTitle(b) {
+    const title =
+      "Battery " +
+      b.percent +
+      "%" +
+      (b.state ? " (" + b.state + ")" : "") +
+      " — scroll for brightness";
+    lastBatteryTitle = title;
+    if (briTarget == null) trayBatt.title = title;
+  }
 
   async function syncBattery() {
     try {
@@ -799,7 +811,7 @@
       battPct.textContent = b.percent + "%";
       trayBatt.classList.toggle("charging", b.onAC);
       trayBatt.classList.toggle("low", !b.onAC && b.percent <= 15);
-      trayBatt.title = "Battery " + b.percent + "%" + (b.state ? " (" + b.state + ")" : "");
+      applyBatteryTitle(b);
       const fill = trayBatt.querySelector(".batt-fill");
       if (fill) fill.setAttribute("width", String(Math.max(1, (13 * b.percent) / 100)));
     } catch {
@@ -810,6 +822,65 @@
   syncBattery();
   setInterval(syncBattery, 15_000);
   trayBatt.addEventListener("click", () => tb.openBatterySettings());
+
+  // Battery scroll adjusts display brightness (same chase pattern as volume).
+  let briTarget = null;
+  let briSetBusy = false;
+  let briBaseLevel = 50;
+  let battLastStepAt = 0;
+
+  function applyBrightnessTitle(level) {
+    trayBatt.title = "Brightness " + Math.round(level) + "% — scroll to adjust";
+  }
+
+  function chaseBrightness() {
+    if (briSetBusy || briTarget == null) return;
+    const target = briTarget;
+    briSetBusy = true;
+    tb.setBrightness(target)
+      .then((v) => {
+        briSetBusy = false;
+        if (briTarget != null && briTarget !== target) {
+          chaseBrightness();
+        } else {
+          briTarget = null;
+          if (v && v.level != null) {
+            applyBrightnessTitle(v.level);
+            setTimeout(() => {
+              if (briTarget == null) trayBatt.title = lastBatteryTitle;
+            }, 1200);
+          } else {
+            trayBatt.title = lastBatteryTitle;
+          }
+        }
+      })
+      .catch(() => {
+        briSetBusy = false;
+        trayBatt.title = lastBatteryTitle;
+      });
+  }
+
+  async function onBattWheel(e) {
+    e.preventDefault();
+    const now = e.timeStamp || Date.now();
+    if (now - battLastStepAt < 35) return;
+    battLastStepAt = now;
+    if (briTarget == null) {
+      try {
+        const b = await tb.getBrightness();
+        briBaseLevel = Number(b.level) || 0;
+      } catch {
+        briBaseLevel = 50;
+      }
+    }
+    const step = e.deltaY < 0 ? 4 : -4;
+    const base = briTarget != null ? briTarget : briBaseLevel;
+    briTarget = Math.max(0, Math.min(100, base + step));
+    applyBrightnessTitle(briTarget);
+    chaseBrightness();
+  }
+
+  trayBatt.addEventListener("wheel", onBattWheel, { passive: false });
 
   // --- First-run onboarding ---
   const onboardPop = document.getElementById("onboardPop");

@@ -10,7 +10,8 @@
     "dist": "electron-builder",
     "dist:dir": "electron-builder --dir",
     "build:helper": "swiftc -O helper/main.swift -o helper/linbar-helper -framework Cocoa -framework ApplicationServices",
-    "postinstall": "npm run build:helper || echo 'swiftc unavailable; LinBar will use the AppleScript fallback'"
+    "build:brightness": "swiftc -O helper/brightness.swift -o helper/linbar-brightness -framework CoreGraphics -framework IOKit",
+    "postinstall": "npm run build:helper && npm run build:brightness || echo 'swiftc unavailable; some native features may be limited'"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -26,7 +27,7 @@
     "dmg": {
       "title": "LinBar ${version}"
     },
-    "files": ["main.js", "preload.js", "lib/**", "renderer/**", "helper/linbar-helper", "build/trayTemplate.png"],
-    "asarUnpack": ["helper/linbar-helper"]
+    "files": ["main.js", "preload.js", "lib/**", "renderer/**", "helper/linbar-helper", "helper/linbar-brightness", "build/trayTemplate.png"],
+    "asarUnpack": ["helper/linbar-helper", "helper/linbar-brightness"]
   }
 }
