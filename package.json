@@ -11,7 +11,8 @@
     "dist:dir": "electron-builder --dir",
     "build:helper": "swiftc -O helper/main.swift -o helper/linbar-helper -framework Cocoa -framework ApplicationServices",
     "build:brightness": "swiftc -O helper/brightness.swift -o helper/linbar-brightness -framework CoreGraphics -framework IOKit",
-    "postinstall": "npm run build:helper && npm run build:brightness || echo 'swiftc unavailable; some native features may be limited'"
+    "build:panel": "node scripts/build-panel.js",
+    "postinstall": "npm run build:helper && npm run build:brightness && npm run build:panel || echo 'native build tools unavailable; some features may be limited'"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -22,12 +23,28 @@
     "mac": {
       "category": "public.app-category.utilities",
       "icon": "build/icon.icns",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "dmg": {
       "title": "LinBar ${version}"
     },
-    "files": ["main.js", "preload.js", "lib/**", "renderer/**", "helper/linbar-helper", "helper/linbar-brightness", "build/trayTemplate.png"],
-    "asarUnpack": ["helper/linbar-helper", "helper/linbar-brightness"]
+    "files": [
+      "main.js",
+      "preload.js",
+      "lib/**",
+      "renderer/**",
+      "helper/linbar-helper",
+      "helper/linbar-brightness",
+      "helper/build/Release/linbar_panel.node",
+      "build/trayTemplate.png"
+    ],
+    "asarUnpack": [
+      "helper/linbar-helper",
+      "helper/linbar-brightness",
+      "helper/build/Release/linbar_panel.node"
+    ]
   }
 }

@@ -3,6 +3,8 @@ dist/
 out/
 helper/linbar-helper
 helper/linbar-brightness
+helper/build/
+helper/liblinbar-panel.dylib
 .DS_Store
 *.log
 .env

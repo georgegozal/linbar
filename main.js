@@ -74,6 +74,7 @@ const {
 const { getFrontmostAppName } = require("./lib/lsappinfo");
 const { startNativeTracker } = require("./lib/helper");
 const { getBrightness, setBrightness } = require("./lib/brightness");
+const { configurePanelWindow } = require("./lib/panel-window");
 const { loadConfig, saveConfig, CONFIG_PATH, CLOCK_DATE_FORMATS } = require("./lib/config");
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -356,6 +357,7 @@ function createWindow() {
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
+    minimizable: false,
     maximizable: false,
     fullscreenable: false,
     focusable: true,
@@ -368,8 +370,9 @@ function createWindow() {
   });
 
   if (process.platform === "darwin") {
-    mainWindow.setAlwaysOnTop(true, "floating");
+    mainWindow.setAlwaysOnTop(true, "pop-up-menu");
     mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    configurePanelWindow(mainWindow);
   }
 
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));

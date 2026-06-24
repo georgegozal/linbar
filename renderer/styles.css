@@ -411,13 +411,16 @@ body {
 }
 
 .clip-item {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   text-align: left;
-  padding: 6px 8px;
+  padding: 5px 8px;
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
   font: inherit;
-  font-size: 12px;
+  font-size: 11.5px;
   color: #333;
   cursor: pointer;
   white-space: nowrap;
