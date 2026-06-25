@@ -12,10 +12,23 @@ LinBar is an Electron app for **macOS only** that renders a Linux/XFCE-style tas
 npm install          # installs deps AND compiles the Swift helper (postinstall)
 npm start            # run the app (electron .)
 npm run build:helper # recompile helper/linbar-helper manually after editing main.swift
-npm run pack         # electron-builder --dir (alias for dist:dir)
-npm run dist:dir     # unpacked LinBar.app in dist/mac/
-npm run dist         # DMG + zip in dist/
+npm run dist:dir -- --arm64      # unpacked LinBar.app in dist/mac-arm64/  (Apple Silicon)
+npm run dist:dir -- --universal  # unpacked LinBar.app in dist/mac-universal/ (fat binary)
+npm run dist         # DMG + zip in dist/  (add --arm64 or --universal as above)
 ```
+
+**Install the built app:**
+```bash
+npm run dist:dir -- --arm64 && cp -R dist/mac-arm64/LinBar.app /Applications
+```
+
+**Before building**, `package.json` should have `"author"` set (electron-builder warns without it) and the target architecture specified. Without `--arm64`/`--universal` the builder defaults to `x64` (Intel/Rosetta).
+
+**Notarization** (required to distribute to other Macs — Gatekeeper blocks unsigned builds):
+- Needs an Apple Developer account ($99/yr) and a Developer ID Application certificate in your keychain.
+- Add `"afterSign": "scripts/notarize.js"` to `package.json` `"build"` section and set `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD` env vars before running `npm run dist`.
+- The native helper binary (`helper/linbar-helper`) must also be signed/hardened for notarization.
+- **Mac App Store is not an option** — the app uses a private AX API (`_AXUIElementGetWindow`) and spawns a separate helper binary, both of which are disallowed in the sandbox.
 
 There is **no test suite, linter, or formatter** configured. "Verifying" a change means running `npm start` and watching the bar / debug logs.
 
