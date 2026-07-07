@@ -232,7 +232,23 @@ function ownProcessNamesToExclude() {
 /** appName -> bundle path, learned from native snapshots; lets icon lookup skip AppleScript. */
 const bundlePathByApp = new Map();
 
+/**
+ * The panel joins every Space at a high window level, so macOS fullscreen
+ * (videos, games) would otherwise show the bar on top. Hide it while the
+ * frontmost window is fullscreen; it comes back the moment fullscreen ends.
+ */
+let panelHiddenForFullscreen = false;
+
+function updateFullscreenState(fullscreen) {
+  if (fullscreen === panelHiddenForFullscreen) return;
+  panelHiddenForFullscreen = fullscreen;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (fullscreen) mainWindow.hide();
+  else mainWindow.showInactive();
+}
+
 function handleNativeSnapshot(snap) {
+  updateFullscreenState(Boolean(snap.fullscreen));
   const exclude = new Set(ownProcessNamesToExclude().map((n) => n.toLowerCase()));
   const tasks = [];
   let front = null;
@@ -309,6 +325,8 @@ function startBackend() {
         if (nativeMode) console.warn("[LinBar] native helper exited; using AppleScript fallback");
         nativeTracker = null;
         nativeMode = false;
+        // No more fullscreen updates will arrive; never leave the bar hidden.
+        updateFullscreenState(false);
         startAppleScriptScheduler();
       },
     });

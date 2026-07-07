@@ -329,6 +329,16 @@ final class Manager {
         }
     }
 
+    /// True when the frontmost app's focused window occupies a fullscreen Space
+    /// (native macOS fullscreen — green button or video players' fullscreen mode).
+    func frontmostIsFullscreen() -> Bool {
+        guard let front = NSWorkspace.shared.frontmostApplication else { return false }
+        let axApp = apps[front.processIdentifier]?.axApp
+            ?? AXUIElementCreateApplication(front.processIdentifier)
+        guard let focused = axCopy(axApp, kAXFocusedWindowAttribute as String) else { return false }
+        return (axCopy(focused as! AXUIElement, "AXFullScreen") as? Bool) ?? false
+    }
+
     func emitSnapshot(reason: String) {
         var windows: [[String: Any]] = []
         var frontID: CGWindowID? = nil
@@ -374,6 +384,7 @@ final class Manager {
             "type": "snapshot",
             "reason": reason,
             "front": frontID.map { Int($0) } as Any,
+            "fullscreen": frontmostIsFullscreen(),
             "windows": windows,
         ])
     }
