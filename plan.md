@@ -6,6 +6,27 @@ with calendar — while staying a native-feeling macOS utility.
 
 ## 0. Changelog
 
+### 2026-07-06 — bug-fix pass from code review
+
+- **Packaged panel addon path** — `lib/panel-window.js` now resolves
+  `app.asar.unpacked/helper/build/Release/linbar_panel.node` (matches `asarUnpack`);
+  packaged builds keep the Mission Control stationary-overlay behavior.
+- **Helper request lifecycle** — `lib/helper.js`: timed-out `icon` requests clear their
+  pending entry so later requests re-send the command; `categories` responses resolve
+  requests FIFO instead of all at once; helper exit settles all pending promises.
+- **Accessibility without restart** — `helper/main.swift` polls `AXIsProcessTrusted()`
+  every 3s while untrusted and hot-swaps to native tracking on grant; `main.js` stops
+  the AppleScript scheduler when the trusted status arrives.
+- **Volume mute state** — `audio:setVolume` and the scroll-wheel UI no longer report
+  `muted: false` after volume changes while the output is muted.
+- **Onboarding** — "Get started" no longer force-enables `hideDockIcon`.
+- **Clipboard history** — oversized items (>5000 chars) are skipped instead of
+  truncated, so copying from history never loses data.
+- **Cleanups** — removed unused `path:open` IPC (and dead `openApp`/`getClipboardText`/
+  settings `hideDock`); helper prunes `observedWindows`/`lastAdjusted` for closed
+  windows; `display-metrics-changed` listener registered once; `package.json` gains
+  `author`; `postinstall` builds each native piece with its own fallback message.
+
 ### 2026-06-16 — packaged app icons & permissions
 
 Installed **LinBar.app** from `/Applications` needs **Accessibility granted to LinBar**

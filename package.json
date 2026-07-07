@@ -3,6 +3,7 @@
   "productName": "LinBar",
   "version": "1.0.0",
   "description": "LinBar — a Linux-desktop-style bottom taskbar for macOS (live windows, quick launch, tray).",
+  "author": "Giorgio Gozali <giorgi.gozalishvili@keytype.it>",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -12,7 +13,7 @@
     "build:helper": "swiftc -O helper/main.swift -o helper/linbar-helper -framework Cocoa -framework ApplicationServices",
     "build:brightness": "swiftc -O helper/brightness.swift -o helper/linbar-brightness -framework CoreGraphics -framework IOKit",
     "build:panel": "node scripts/build-panel.js",
-    "postinstall": "npm run build:helper && npm run build:brightness && npm run build:panel || echo 'native build tools unavailable; some features may be limited'"
+    "postinstall": "(npm run build:helper || echo 'helper build failed; window tracking will use AppleScript fallback') && (npm run build:brightness || echo 'brightness build failed; brightness control unavailable') && (npm run build:panel || echo 'panel addon build failed; Mission Control overlay behavior unavailable')"
   },
   "devDependencies": {
     "electron": "^33.2.0",

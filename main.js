@@ -183,7 +183,8 @@ async function runTaskRefresh(reason) {
     }
   } finally {
     taskRefreshInFlight = false;
-    scheduleTaskRefresh();
+    // Don't resurrect the loop if the native backend took over mid-refresh.
+    if (fallbackStarted) scheduleTaskRefresh();
   }
 }
 
@@ -290,6 +291,9 @@ function startBackend() {
       onStatus: (s) => {
         if (s.trusted) {
           nativeMode = true;
+          // The helper may report trusted later (it polls after the user grants
+          // Accessibility); retire the AppleScript fallback if it was running.
+          stopAppleScriptScheduler();
           applyScreenReserve();
           console.log("[LinBar] native helper active (event-driven backend)");
         } else {
@@ -322,6 +326,19 @@ function startAppleScriptScheduler() {
   markTaskInteraction();
   scheduleTaskRefresh(0);
   if (!frontPollTimer) frontPollTimer = setInterval(() => void pollFrontmost(), FRONT_POLL_MS);
+}
+
+function stopAppleScriptScheduler() {
+  if (!fallbackStarted) return;
+  fallbackStarted = false;
+  if (taskRefreshTimer) {
+    clearTimeout(taskRefreshTimer);
+    taskRefreshTimer = null;
+  }
+  if (frontPollTimer) {
+    clearInterval(frontPollTimer);
+    frontPollTimer = null;
+  }
 }
 
 function panelBoundsForDisplay(display) {
@@ -394,11 +411,8 @@ function createWindow() {
     }
   });
 
-  screen.on("display-metrics-changed", () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      positionPanelWindow(mainWindow);
-      applyScreenReserve();
-    }
+  mainWindow.on("closed", () => {
+    mainWindow = null;
   });
 }
 
@@ -573,13 +587,6 @@ ipcMain.handle("app:open", async (_e, appName) => {
   }
 });
 
-ipcMain.handle("path:open", async (_e, target) => {
-  if (!target || typeof target !== "string") return { ok: false };
-  const err = await shell.openPath(target);
-  if (err) return { ok: false, error: err };
-  return { ok: true };
-});
-
 /** Open well-known folders: documents | desktop | downloads | home */
 ipcMain.handle("path:special", async (_e, key) => {
   const map = {
@@ -615,8 +622,10 @@ ipcMain.handle("audio:changeVolume", async (_e, rawDelta) => {
 ipcMain.handle("audio:setVolume", async (_e, rawLevel) => {
   const level = Math.max(0, Math.min(100, Math.round(Number(rawLevel) || 0)));
   try {
+    // Changing the output volume does not unmute on macOS; report the real mute state.
+    const s = await getVolumeState();
     await setOutputVolume(level);
-    return { muted: false, level };
+    return { muted: s.muted, level };
   } catch (err) {
     return { muted: false, level: 0, error: String(err && err.message ? err.message : err) };
   }
@@ -689,10 +698,12 @@ let lastClipText = "";
 function watchClipboard() {
   setInterval(() => {
     try {
-      let text = clipboard.readText();
+      const text = clipboard.readText();
       if (!text || text === lastClipText) return;
       lastClipText = text;
-      if (text.length > CLIP_ITEM_MAX_CHARS) text = text.slice(0, CLIP_ITEM_MAX_CHARS);
+      // Don't truncate: copying a shortened item back would silently lose data.
+      // Oversized items are simply not kept in history.
+      if (text.length > CLIP_ITEM_MAX_CHARS) return;
       const idx = clipHistory.indexOf(text);
       if (idx !== -1) clipHistory.splice(idx, 1);
       clipHistory.unshift(text);
@@ -1242,6 +1253,15 @@ app.whenReady().then(() => {
   createWindow();
   startBackend();
   watchClipboard();
+
+  // Registered once here (not in createWindow) so recreating the panel window
+  // does not stack duplicate listeners.
+  screen.on("display-metrics-changed", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      positionPanelWindow(mainWindow);
+      applyScreenReserve();
+    }
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

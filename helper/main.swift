@@ -158,14 +158,27 @@ final class Manager {
     var linbarPid: pid_t = 0
     private var lastAdjusted: [CGWindowID: TimeInterval] = [:]
 
+    private var trustPollTimer: Timer?
+
     func start() {
         let trusted = AXIsProcessTrusted()
         emit(["type": "status", "trusted": trusted])
-        guard trusted else {
-            // Stay alive; parent may re-ask after the user grants Accessibility.
+        if trusted {
+            beginTracking()
             return
         }
+        // Stay alive and poll until the user grants Accessibility, then hot-swap
+        // to event-driven tracking without requiring an app restart.
+        trustPollTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] timer in
+            guard AXIsProcessTrusted() else { return }
+            timer.invalidate()
+            self?.trustPollTimer = nil
+            emit(["type": "status", "trusted": true])
+            self?.beginTracking()
+        }
+    }
 
+    func beginTracking() {
         for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular {
             track(app)
         }
@@ -319,6 +332,7 @@ final class Manager {
     func emitSnapshot(reason: String) {
         var windows: [[String: Any]] = []
         var frontID: CGWindowID? = nil
+        var liveWindowIDs: Set<CGWindowID> = []
         let frontPid = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
         for (pid, tracked) in apps {
@@ -329,6 +343,7 @@ final class Manager {
             }
             for el in tracked.windows() {
                 guard let wid = axWindowID(el) else { continue }
+                liveWindowIDs.insert(wid)
                 var title = axString(el, kAXTitleAttribute as String) ?? ""
                 if title.isEmpty { title = tracked.name }
                 let minimized = axBool(el, kAXMinimizedAttribute as String)
@@ -346,6 +361,14 @@ final class Manager {
                 ])
             }
         }
+
+        // Prune bookkeeping for windows that no longer exist so these maps do not
+        // grow for the lifetime of the process. Re-registering notifications for a
+        // window that reappears is harmless (AX reports "already registered").
+        for (_, tracked) in apps {
+            tracked.observedWindows.formIntersection(liveWindowIDs)
+        }
+        lastAdjusted = lastAdjusted.filter { liveWindowIDs.contains($0.key) }
 
         emit([
             "type": "snapshot",

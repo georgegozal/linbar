@@ -37,7 +37,6 @@ contextBridge.exposeInMainWorld("taskbar", {
   contextMenuPin: (appName) => ipcRenderer.send("pins:contextmenu", appName),
   getAppIcon: (appName) => ipcRenderer.invoke("icon:get", appName),
   openApp: (appName) => ipcRenderer.invoke("app:open", appName),
-  openPath: (target) => ipcRenderer.invoke("path:open", target),
   openSpecialPath: (key) => ipcRenderer.invoke("path:special", key),
   toggleMute: () => ipcRenderer.invoke("audio:toggleMute"),
   getVolume: () => ipcRenderer.invoke("audio:getVolume"),

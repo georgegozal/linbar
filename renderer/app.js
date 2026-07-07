@@ -685,8 +685,11 @@
   const volLevel = document.getElementById("volLevel");
   const volMuteBtn = document.getElementById("volMuteBtn");
 
+  let lastKnownMuted = false;
+
   function applyVolumeUi(v) {
     const muted = !!v.muted;
+    lastKnownMuted = muted;
     const level = Math.round(v.level);
     trayVol.classList.toggle("muted", muted);
     trayVol.title = muted ? "Muted" : "Volume " + level + "% — scroll to adjust";
@@ -776,7 +779,8 @@
     const step = e.deltaY < 0 ? 4 : -4; // sign only: device-independent
     const base = volTarget != null ? volTarget : Number(volSlider.value) || 0;
     volTarget = Math.max(0, Math.min(100, base + step));
-    applyVolumeUi({ muted: false, level: volTarget });
+    // Changing volume does not unmute; keep showing the real mute state.
+    applyVolumeUi({ muted: lastKnownMuted, level: volTarget });
     chaseVolume();
   }
 
@@ -907,9 +911,10 @@
       void tb.hideDock();
     });
     onboardDone.addEventListener("click", () => {
+      // Only save what the user actually chose; hiding LinBar's own Dock tile
+      // stays opt-in via Preferences.
       void tb.setConfig({
         launchAtLogin: onboardLogin.checked,
-        hideDockIcon: true,
         onboardingComplete: true,
       }).then(() => setOnboardingOpen(false));
     });
