@@ -6,6 +6,13 @@ with calendar — while staying a native-feeling macOS utility.
 
 ## 0. Changelog
 
+### 2026-07-07 — hide the bar over fullscreen Spaces
+
+Fullscreen video/games were overlapped by the panel because it was marked
+`NSWindowCollectionBehaviorFullScreenAuxiliary` (and `visibleOnFullScreen: true`).
+Both removed: fullscreen Spaces now cover the bar; it reappears on leaving
+fullscreen. Mission Control / all-Spaces behavior is unchanged.
+
 ### 2026-07-06 — bug-fix pass from code review
 
 - **Packaged panel addon path** — `lib/panel-window.js` now resolves

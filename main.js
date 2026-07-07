@@ -388,7 +388,9 @@ function createWindow() {
 
   if (process.platform === "darwin") {
     mainWindow.setAlwaysOnTop(true, "pop-up-menu");
-    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    // visibleOnFullScreen: false — fullscreen Spaces (videos, games) cover the bar;
+    // it reappears automatically when leaving fullscreen.
+    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
     configurePanelWindow(mainWindow);
   }
 
