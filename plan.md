@@ -17,6 +17,12 @@ focused window) and `main.js` hides the panel window while fullscreen is
 active, restoring it with `showInactive()` on exit (and on helper exit).
 Mission Control / all-Spaces behavior is unchanged.
 
+Follow-up: AX only lists windows in the active Space, so the snapshot taken
+mid-transition (leaving fullscreen) showed every other app as windowless and
+the bar kept only the browser button. The helper now re-scans 0.7s after each
+Space change (`spaceSettled`), and `main.js` requests one more snapshot 400ms
+after un-hiding the panel.
+
 ### 2026-07-06 — bug-fix pass from code review
 
 - **Packaged panel addon path** — `lib/panel-window.js` now resolves

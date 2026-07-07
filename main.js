@@ -243,8 +243,16 @@ function updateFullscreenState(fullscreen) {
   if (fullscreen === panelHiddenForFullscreen) return;
   panelHiddenForFullscreen = fullscreen;
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  if (fullscreen) mainWindow.hide();
-  else mainWindow.showInactive();
+  if (fullscreen) {
+    mainWindow.hide();
+  } else {
+    mainWindow.showInactive();
+    // The snapshot that ended fullscreen was taken mid-Space-transition, when AX
+    // sees other apps as windowless. Ask for a fresh one after things settle.
+    setTimeout(() => {
+      if (nativeTracker) nativeTracker.requestSnapshot();
+    }, 400);
+  }
 }
 
 function handleNativeSnapshot(snap) {

@@ -202,6 +202,12 @@ final class Manager {
         }
         nc.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.scheduleSnapshot(reason: "spaceChanged")
+            // AX only reports windows in the active Space; mid-transition (e.g.
+            // leaving fullscreen) most apps appear windowless. Re-scan once the
+            // switch has settled so the task list repopulates without user input.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                self?.scheduleSnapshot(reason: "spaceSettled")
+            }
         }
 
         // Safety net for apps with unreliable AX notifications (some Java/legacy apps).
