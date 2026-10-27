@@ -1,8 +1,16 @@
 # LinBar
 
+[![Stars](https://img.shields.io/github/stars/georgegozal/linbar?style=flat-square)](https://github.com/georgegozal/linbar/stargazers)
+[![Forks](https://img.shields.io/github/forks/georgegozal/linbar?style=flat-square)](https://github.com/georgegozal/linbar/network/members)
+[![License: AGPL-3.0](https://img.shields.io/github/license/georgegozal/linbar?style=flat-square)](LICENSE)
+[![macOS](https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple)](https://github.com/georgegozal/linbar)
+[![Contributing](https://img.shields.io/badge/contributing-guide-7c3aed?style=flat-square)](CONTRIBUTING.md)
+
 **LinBar** is a *Linux-desktop-style* bottom **taskbar** for macOS: live per-window task buttons, pinned launchers, start menu, calendar, and tray controls.
 
 The name is short for **Lin**ux-style **bar** — familiar if you miss XFCE/Mint panels, but built for the Mac.
+
+**Contents:** [How it works](#how-it-works) · [Requirements](#requirements) · [Run](#run-from-source) · [Install](#install-as-a-macos-app) · [Features](#features) · [Debugging](#debugging) · [Contributing](#contributing) · [Support](#support) · [License](#license)
 
 ## How it works
 
@@ -103,6 +111,22 @@ If the app drawer shows gray placeholders instead of real icons, quit LinBar ful
 ## Static prototype
 
 For a browser-only mock (no real apps), see `../xfce-taskbar-demo/`.
+
+## Contributing
+
+Fork the repo, work on a branch, and open a pull request against [georgegozal/linbar](https://github.com/georgegozal/linbar). See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, helper rebuild, and commit conventions.
+
+## Support
+
+LinBar is **free software** ([AGPL-3.0](LICENSE)). You can use, study, modify, and share it under that license — no payment required.
+
+If the app saves you time, optional tips help fund maintenance and new features. Tips do not unlock extra features or a “pro” edition.
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/georgegozal)
+
+## License
+
+LinBar is free software released under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [LICENSE](LICENSE) for the full text.
 
 ## Disclaimer
 
