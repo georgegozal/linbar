@@ -14,7 +14,7 @@ The name is short for **Lin**ux-style **bar** — familiar if you miss XFCE/Mint
 
 ![LinBar taskbar preview](assets/screenshot.png)
 
-Preview rendered from the real panel styles ([`docs/readme-screenshot.html`](docs/readme-screenshot.html); regenerate on Linux with `bash scripts/generate-readme-screenshot.sh`). On macOS, install from **[Releases](https://github.com/georgegozal/linbar/releases)** (v1.0.0 DMG/ZIP).
+To update the preview after UI changes: edit [`docs/readme-screenshot.html`](docs/readme-screenshot.html) (uses the same CSS as the app drawer/taskbar), adjust PNGs in [`assets/readme-icons/`](assets/readme-icons/) if needed, then run `bash scripts/generate-readme-screenshot.sh` (headless Firefox, Chrome, or Chromium) to regenerate [`assets/screenshot.png`](assets/screenshot.png).
 
 ## How it works
 

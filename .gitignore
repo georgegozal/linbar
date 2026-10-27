@@ -1,4 +1,5 @@
 Screenshot_*.jpg
+assets/screenshot.backup.png
 
 node_modules/
 dist/

@@ -7,11 +7,11 @@ OUT="${ROOT}/assets/screenshot.png"
 mkdir -p "${ROOT}/assets"
 
 if command -v firefox >/dev/null 2>&1; then
-  firefox --headless --screenshot "$OUT" --window-size=1280,720 "$HTML"
+  firefox --headless --screenshot "$OUT" --window-size=1280,780 "$HTML"
 elif command -v google-chrome >/dev/null 2>&1; then
-  google-chrome --headless --disable-gpu --window-size=1280,720 --screenshot="$OUT" "$HTML"
+  google-chrome --headless --disable-gpu --window-size=1280,780 --screenshot="$OUT" "$HTML"
 elif command -v chromium >/dev/null 2>&1; then
-  chromium --headless --disable-gpu --window-size=1280,720 --screenshot="$OUT" "$HTML"
+  chromium --headless --disable-gpu --window-size=1280,780 --screenshot="$OUT" "$HTML"
 else
   echo "Need firefox, google-chrome, or chromium for headless screenshot." >&2
   exit 1
