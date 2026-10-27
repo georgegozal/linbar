@@ -21,6 +21,8 @@ npm start
 
 Grant **Accessibility** to LinBar (or Terminal when running from source) in System Settings.
 
+**README screenshot (no Mac required):** `bash scripts/generate-readme-screenshot.sh` — headless Firefox captures `docs/readme-screenshot.html` into `assets/screenshot.png`.
+
 Useful env vars (see [README.md](README.md#debugging)):
 
 - `LINBAR_DEBUG_TASKS=1 npm start`

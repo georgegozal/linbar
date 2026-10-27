@@ -1,6 +1,7 @@
 # LinBar
 
 [![GitHub](https://img.shields.io/badge/GitHub-georgegozal%2Flinbar-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/georgegozal/linbar)
+[![Release](https://img.shields.io/badge/release-v1.0.0-blue?style=flat-square)](https://github.com/georgegozal/linbar/releases/tag/v1.0.0)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--v3.0-blue?style=flat-square)](LICENSE)
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple)](https://github.com/georgegozal/linbar)
 [![Contributing](https://img.shields.io/badge/contributing-guide-7c3aed?style=flat-square)](CONTRIBUTING.md)
@@ -10,6 +11,10 @@
 The name is short for **Lin**ux-style **bar** — familiar if you miss XFCE/Mint panels, but built for the Mac.
 
 **Contents:** [How it works](#how-it-works) · [Requirements](#requirements) · [Run](#run-from-source) · [Install](#install-as-a-macos-app) · [Features](#features) · [Debugging](#debugging) · [Contributing](#contributing) · [Support](#support) · [License](#license)
+
+![LinBar taskbar preview](assets/screenshot.png)
+
+Preview rendered from the real panel styles ([`docs/readme-screenshot.html`](docs/readme-screenshot.html); regenerate on Linux with `bash scripts/generate-readme-screenshot.sh`). On macOS, install from **[Releases](https://github.com/georgegozal/linbar/releases)** (v1.0.0 DMG/ZIP).
 
 ## How it works
 
