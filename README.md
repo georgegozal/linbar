@@ -1,8 +1,7 @@
 # LinBar
 
-[![Stars](https://img.shields.io/github/stars/georgegozal/linbar?style=flat-square)](https://github.com/georgegozal/linbar/stargazers)
-[![Forks](https://img.shields.io/github/forks/georgegozal/linbar?style=flat-square)](https://github.com/georgegozal/linbar/network/members)
-[![License: AGPL-3.0](https://img.shields.io/github/license/georgegozal/linbar?style=flat-square)](LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-georgegozal%2Flinbar-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/georgegozal/linbar)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--v3.0-blue?style=flat-square)](LICENSE)
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square&logo=apple)](https://github.com/georgegozal/linbar)
 [![Contributing](https://img.shields.io/badge/contributing-guide-7c3aed?style=flat-square)](CONTRIBUTING.md)
 
